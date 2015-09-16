@@ -93,11 +93,6 @@ this.FxAccountsMgmtService = {
       delete data.accountId;
     }
 
-    // Bug 1202450 dirty hack because Gaia is sending getAccounts.
-    if (data.method == "getAccounts") {
-      data.method = "getAccount";
-    }
-
     switch(data.method) {
       case "getAssertion":
         let principal = Services.scriptSecurityManager.getSystemPrincipal();
@@ -114,7 +109,7 @@ this.FxAccountsMgmtService = {
       case "getKeys":
         FxAccountsManager[data.method]().then(
           result => {
-            // For the getAccounts case, we only expose the email and
+            // For the getAccount case, we only expose the email and
             // verification status so far.
             self._onFulfill(msg.id, result);
           },
