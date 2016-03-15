@@ -55,7 +55,6 @@ add_task(function* testSynchronousConvert() {
   equal(result, "Foo <localized-xxx> bar <localized-yyy> baz");
 });
 
-
 // Test that the asynchronous converter works as expected with input
 // split into multiple chunks, and a boundary in the middle of a
 // replacement token.

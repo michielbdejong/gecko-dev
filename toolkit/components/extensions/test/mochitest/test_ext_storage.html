@@ -14,154 +14,208 @@
 "use strict";
 
 function backgroundScript() {
-  function set(items) {
+  function checkStorageSync() {
+    var promises = [];
+    var apiTests = [
+      { method: 'get', args: ['foo'], result: {} },
+      { method: 'set', args: [{ foo: 'bar' }], result: undefined },
+      { method: 'remove', args: ['foo'], result: undefined },
+      { method: 'clear', args: [], result: undefined },
+    ];
+    apiTests.forEach(testDef => {
+      browser.test.assertEq('function', typeof browser.storage.sync[testDef.method],
+          `storage.sync.${testDef.method} is defined`);
+    });
+    SpecialPowers.setBoolPref('extension.storage.sync.enabled', false);
+    apiTests.forEach(testDef => {
+      promises.push(new Promise(resolve => {
+        browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
+          browser.test.assertEq('Please set extension.storage.sync.enabled to tr' +
+              'ue in about:config', browser.runtime.lastError.message,
+              `storage.sync.${testDef.method} is behind a flag`);
+          resolve();
+        }));
+      }));
+    });
+    SpecialPowers.setBoolPref('extension.storage.sync.enabled', true);
+    apiTests.forEach(testDef => {
+      promises.push(new Promise(resolve => {
+        browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
+          browser.test.assertEq(null, browser.runtime.lastError, `error with ${testDef.method}`);
+          browser.test.assertEq(JSON.stringify(testDef.result), JSON.stringify(res), `wrong callback ${testDef.method}`);
+          resolve();
+        }));
+      }));
+    });
+    return Promise.all(promises);
+  }
+
+  function set(areaName, items) {
     return new Promise(resolve => {
-      browser.storage.local.set(items, resolve);
+      browser.storage[areaName].set(items, resolve);
     });
   }
 
-  function get(items) {
+  function get(areaName, keys) {
     return new Promise(resolve => {
-      browser.storage.local.get(items, resolve);
+      browser.storage[areaName].get(keys, resolve);
     });
   }
 
-  function remove(items) {
+  function remove(areaName, keys) {
     return new Promise(resolve => {
-      browser.storage.local.remove(items, resolve);
+      browser.storage[areaName].remove(keys, resolve);
     });
   }
 
-  function clear(items) {
+  function clear(areaName) {
     return new Promise(resolve => {
-      browser.storage.local.clear(resolve);
+      browser.storage[areaName].clear(resolve);
     });
   }
 
-  function check(prop, value) {
-    return get(null).then(data => {
-      browser.test.assertEq(data[prop], value, "null getter worked for " + prop);
-      return get(prop);
+  function check(areaName, prop, value) {
+    return get(areaName, null).then(data => {
+      browser.test.assertEq(value, data[prop], "null getter worked for " + prop);
+      return get(areaName, prop);
     }).then(data => {
-      browser.test.assertEq(data[prop], value, "string getter worked for " + prop);
-      return get([prop]);
+      browser.test.assertEq(value, data[prop], "string getter worked for " + prop);
+      return get(areaName, [prop]);
     }).then(data => {
-      browser.test.assertEq(data[prop], value, "array getter worked for " + prop);
-      return get({[prop]: undefined});
+      browser.test.assertEq(value, data[prop], "array getter worked for " + prop);
+      return get(areaName, {[prop]: undefined});
     }).then(data => {
-      browser.test.assertEq(data[prop], value, "object getter worked for " + prop);
+      browser.test.assertEq(value, data[prop], "object getter worked for " + prop);
     });
   }
 
   let globalChanges = {};
-
+  let globalAreaName;
   browser.storage.onChanged.addListener((changes, storage) => {
-    browser.test.assertEq(storage, "local", "storage is local");
+    globalAreaName = storage;
     Object.assign(globalChanges, changes);
   });
 
-  function checkChanges(changes) {
+  function checkChanges(areaName, changes, message) {
     function checkSub(obj1, obj2) {
       for (let prop in obj1) {
-        browser.test.assertEq(obj1[prop].oldValue, obj2[prop].oldValue);
-        browser.test.assertEq(obj1[prop].newValue, obj2[prop].newValue);
+        browser.test.assertEq(obj1[prop].oldValue, obj2[prop].oldValue,
+            `checkChanges ${prop} old (${message})`);
+        browser.test.assertEq(obj1[prop].newValue, obj2[prop].newValue,
+            `checkChanges ${prop} new (${message})`);
       }
     }
 
+    browser.test.assertEq(globalAreaName, areaName,
+        `StorageChange areaName (${message})`);
     checkSub(changes, globalChanges);
     checkSub(globalChanges, changes);
     globalChanges = {};
   }
 
   /* eslint-disable dot-notation */
+  function runTests(areaName) {
+    // Set some data and then test getters.
+    return set(areaName, {"test-prop1": "value1", "test-prop2": "value2"}).then(() => {
+      checkChanges(areaName,
+          {"test-prop1": {newValue: "value1"}, "test-prop2": {newValue: "value2"}},
+          'set (a)');
+      return check(areaName, "test-prop1", "value1");
+    }).then(() => {
+      return check(areaName, "test-prop2", "value2");
+    }).then(() => {
+      return get(areaName, {"test-prop1": undefined, "test-prop2": undefined, "other": "default"});
+    }).then(data => {
+      browser.test.assertEq(data["test-prop1"], "value1", "prop1 correct (a)");
+      browser.test.assertEq(data["test-prop2"], "value2", "prop2 correct (a)");
+      browser.test.assertEq(data["other"], "default", "other correct");
+      return get(areaName, ["test-prop1", "test-prop2", "other"]);
+    }).then(data => {
+      browser.test.assertEq(data["test-prop1"], "value1", "prop1 correct (b)");
+      browser.test.assertEq(data["test-prop2"], "value2", "prop2 correct (b)");
+      browser.test.assertFalse("other" in data, "other correct");
 
-  // Set some data and then test getters.
-  set({"test-prop1": "value1", "test-prop2": "value2"}).then(() => {
-    checkChanges({"test-prop1": {newValue: "value1"}, "test-prop2": {newValue: "value2"}});
-    return check("test-prop1", "value1");
-  }).then(() => {
-    return check("test-prop2", "value2");
-  }).then(() => {
-    return get({"test-prop1": undefined, "test-prop2": undefined, "other": "default"});
-  }).then(data => {
-    browser.test.assertEq(data["test-prop1"], "value1", "prop1 correct");
-    browser.test.assertEq(data["test-prop2"], "value2", "prop2 correct");
-    browser.test.assertEq(data["other"], "default", "other correct");
-    return get(["test-prop1", "test-prop2", "other"]);
-  }).then(data => {
-    browser.test.assertEq(data["test-prop1"], "value1", "prop1 correct");
-    browser.test.assertEq(data["test-prop2"], "value2", "prop2 correct");
-    browser.test.assertFalse("other" in data, "other correct");
+    // Remove data in various ways.
+    }).then(() => {
+      return remove(areaName, "test-prop1");
+    }).then(() => {
+      checkChanges(areaName, {"test-prop1": {oldValue: "value1"}}, 'remove string');
+      return get(areaName, ["test-prop1", "test-prop2"]);
+    }).then(data => {
+      browser.test.assertFalse("test-prop1" in data, "prop1 absent (remove string)");
+      browser.test.assertTrue("test-prop2" in data, "prop2 present (remove string)");
 
-  // Remove data in various ways.
-  }).then(() => {
-    return remove("test-prop1");
-  }).then(() => {
-    checkChanges({"test-prop1": {oldValue: "value1"}});
-    return get(["test-prop1", "test-prop2"]);
-  }).then(data => {
-    browser.test.assertFalse("test-prop1" in data, "prop1 absent");
-    browser.test.assertTrue("test-prop2" in data, "prop2 present");
+      return set(areaName, {"test-prop1": "value1"});
+    }).then(() => {
+      checkChanges(areaName, {"test-prop1": {newValue: "value1"}}, 'set (c)');
+      return get(areaName, ["test-prop1", "test-prop2"]);
+    }).then(data => {
+      browser.test.assertEq(data["test-prop1"], "value1", "prop1 correct (c)");
+      browser.test.assertEq(data["test-prop2"], "value2", "prop2 correct (c)");
+    }).then(() => {
+      return remove(areaName, ["test-prop1", "test-prop2"]);
+    }).then(() => {
+      checkChanges(areaName,
+          {"test-prop1": {oldValue: "value1"}, "test-prop2": {oldValue: "value2"}},
+          'remove array');
+      return get(areaName, ["test-prop1", "test-prop2"]);
+    }).then(data => {
+      browser.test.assertFalse("test-prop1" in data, "prop1 absent (remove array)");
+      browser.test.assertFalse("test-prop2" in data, "prop2 absent (remove array)");
 
-    return set({"test-prop1": "value1"});
-  }).then(() => {
-    checkChanges({"test-prop1": {newValue: "value1"}});
-    return get(["test-prop1", "test-prop2"]);
-  }).then(data => {
-    browser.test.assertEq(data["test-prop1"], "value1", "prop1 correct");
-    browser.test.assertEq(data["test-prop2"], "value2", "prop2 correct");
-  }).then(() => {
-    return remove(["test-prop1", "test-prop2"]);
-  }).then(() => {
-    checkChanges({"test-prop1": {oldValue: "value1"}, "test-prop2": {oldValue: "value2"}});
-    return get(["test-prop1", "test-prop2"]);
-  }).then(data => {
-    browser.test.assertFalse("test-prop1" in data, "prop1 absent");
-    browser.test.assertFalse("test-prop2" in data, "prop2 absent");
+    // test storage.clear
+    }).then(() => {
+      return set(areaName, {"test-prop1": "value1", "test-prop2": "value2"});
+    }).then(() => {
+      return clear(areaName);
+    }).then(() => {
+      checkChanges(areaName,
+          {"test-prop1": {oldValue: "value1"}, "test-prop2": {oldValue: "value2"}},
+          'clear');
+      return get(areaName, ["test-prop1", "test-prop2"]);
+    }).then(data => {
+      browser.test.assertFalse("test-prop1" in data, "prop1 absent (clear)");
+      browser.test.assertFalse("test-prop2" in data, "prop2 absent (clear)");
 
-  // test storage.clear
-  }).then(() => {
-    return set({"test-prop1": "value1", "test-prop2": "value2"});
-  }).then(() => {
-    return clear();
-  }).then(() => {
-    checkChanges({"test-prop1": {oldValue: "value1"}, "test-prop2": {oldValue: "value2"}});
-    return get(["test-prop1", "test-prop2"]);
-  }).then(data => {
-    browser.test.assertFalse("test-prop1" in data, "prop1 absent");
-    browser.test.assertFalse("test-prop2" in data, "prop2 absent");
+    // Test cache invalidation.
+    }).then(() => {
+      return set(areaName, {"test-prop1": "value1", "test-prop2": "value2"});
+    }).then(() => {
+      globalChanges = {};
+      browser.test.sendMessage(`invalidate-${areaName}`);
+      return new Promise(resolve => browser.test.onMessage.addListener(resolve));
+    }).then(() => {
+      return check(areaName, "test-prop1", "value1");
+    }).then(() => {
+      return check(areaName, "test-prop2", "value2");
 
-  // Test cache invalidation.
-  }).then(() => {
-    return set({"test-prop1": "value1", "test-prop2": "value2"});
-  }).then(() => {
-    globalChanges = {};
-    browser.test.sendMessage("invalidate");
-    return new Promise(resolve => browser.test.onMessage.addListener(resolve));
-  }).then(() => {
-    return check("test-prop1", "value1");
-  }).then(() => {
-    return check("test-prop2", "value2");
+    // Make sure we can store complex JSON data.
+    }).then(() => {
+      return set(areaName, {"test-prop1": {str: "hello", bool: true, undef: undefined, obj: {}, arr: [1, 2]}});
+    }).then(() => {
+      browser.test.assertEq(globalChanges["test-prop1"].oldValue, "value1", "oldValue correct");
+      browser.test.assertEq(typeof(globalChanges["test-prop1"].newValue), "object", "newValue is obj");
+      globalChanges = {};
+      return get(areaName, {"test-prop1": undefined});
+    }).then(data => {
+      let obj = data["test-prop1"];
 
-  // Make sure we can store complex JSON data.
-  }).then(() => {
-    return set({"test-prop1": {str: "hello", bool: true, undef: undefined, obj: {}, arr: [1, 2]}});
-  }).then(() => {
-    browser.test.assertEq(globalChanges["test-prop1"].oldValue, "value1", "oldValue correct");
-    browser.test.assertEq(typeof(globalChanges["test-prop1"].newValue), "object", "newValue is obj");
-    globalChanges = {};
-    return get({"test-prop1": undefined});
-  }).then(data => {
-    let obj = data["test-prop1"];
+      browser.test.assertEq(obj.str, "hello", "string part correct");
+      browser.test.assertEq(obj.bool, true, "bool part correct");
+      browser.test.assertEq(obj.undef, undefined, "undefined part correct");
+      browser.test.assertEq(typeof(obj.obj), "object", "object part correct");
+      browser.test.assertTrue(Array.isArray(obj.arr), "array part present");
+      browser.test.assertEq(obj.arr[0], 1, "arr[0] part correct");
+      browser.test.assertEq(obj.arr[1], 2, "arr[1] part correct");
+      browser.test.assertEq(obj.arr.length, 2, "arr.length part correct");
+    });
+  }
 
-    browser.test.assertEq(obj.str, "hello", "string part correct");
-    browser.test.assertEq(obj.bool, true, "bool part correct");
-    browser.test.assertEq(obj.undef, undefined, "undefined part correct");
-    browser.test.assertEq(typeof(obj.obj), "object", "object part correct");
-    browser.test.assertTrue(Array.isArray(obj.arr), "array part present");
-    browser.test.assertEq(obj.arr[0], 1, "arr[0] part correct");
-    browser.test.assertEq(obj.arr[1], 2, "arr[1] part correct");
-    browser.test.assertEq(obj.arr.length, 2, "arr.length part correct");
+  runTests('local').then(() => {
+    SpecialPowers.setBoolPref('extension.storage.sync.enabled', true);
+    return runTests('sync');
+  }).then(() => {
+    return checkStorageSync();
   }).then(() => {
     browser.test.notifyPass("storage");
   });
@@ -176,9 +230,14 @@ let extensionData = {
 
 add_task(function* test_contentscript() {
   let extension = ExtensionTestUtils.loadExtension(extensionData);
-  yield Promise.all([extension.startup(), extension.awaitMessage("invalidate")]);
+  yield Promise.all([extension.startup(), extension.awaitMessage("invalidate-local")]);
   SpecialPowers.invalidateExtensionStorageCache();
-  extension.sendMessage("invalidated");
+  extension.sendMessage("invalidated-local");
+
+  yield extension.awaitMessage("invalidate-sync");
+  SpecialPowers.invalidateExtensionStorageCache();
+  extension.sendMessage("invalidated-sync");
+
   yield extension.awaitFinish("storage");
   yield extension.unload();
   info("extension unloaded");
