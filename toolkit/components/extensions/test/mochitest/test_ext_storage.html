@@ -14,6 +14,34 @@
 "use strict";
 
 function backgroundScript() {
+  function checkStorageSync() {
+    var apiTests = [
+      { method: 'get', args: [{}] },
+      { method: 'set', args: [{}] },
+      { method: 'remove', args: ['foo'] },
+      { method: 'clear', args: [] },
+    ];
+    apiTests.forEach(testDef => {
+      browser.test.assertEq('function', typeof browser.storage.sync[testDef.method],
+          `storage.sync.${testDef.method} is defined`);
+    });
+    apiTests.forEach(testDef => {
+      browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
+        browser.test.assertEq('Please set extension.storage.sync.enabled to tr' +
+            'ue in about:config', browser.runtime.lastError.message,
+            `storage.sync.${testDef.method} is behind a flag`);
+      }));
+    });
+    SpecialPowers.setBoolPref('extension.storage.sync.enabled', true);
+    apiTests.forEach(testDef => {
+      browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
+        browser.test.assertEq('Not implemented', browser.runtime.lastError.message,
+            `storage.sync.${testDef.method} is not implemented`);
+      }));
+    });
+  }
+  checkStorageSync();
+
   function set(items) {
     return new Promise(resolve => {
       browser.storage.local.set(items, resolve);
