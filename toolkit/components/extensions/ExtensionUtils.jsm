@@ -216,7 +216,8 @@ class BaseContext {
     }
     if (!instanceOf(error, "Object")) {
       Cu.reportError(error);
-      error = {message: "An unexpected error occurred"};
+      // error = {message: "An unexpected error occurred"};
+      error = {message: error.message};
     }
     return new this.cloneScope.Error(error.message);
   }
