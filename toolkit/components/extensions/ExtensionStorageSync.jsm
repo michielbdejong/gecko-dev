@@ -26,18 +26,21 @@ function checkEnabled() {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
     return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
-  if (!Kinto) {
-    return Promise.reject(new Error('Not supported'));
-  }
   if (!items) {
     const Kinto = loadKinto();
+    if (!Kinto) {
+      return Promise.reject(new Error('Not supported'));
+    }
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
     });
     const tmp = db.collection("items");
-    return tmp.db.open().then(() => {
-      items = tmp;
-    }, Cu.reportError);
+    // return tmp.db.open().then(() => {
+    //   items = tmp;
+    // }, Cu.reportError);
+    // TODO: call tmp.db.open()
+    items = tmp;
+    return Promise.resolve();
   }
   return Promise.resolve();
 }
