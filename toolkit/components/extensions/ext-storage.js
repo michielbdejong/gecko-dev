@@ -6,14 +6,8 @@ var {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 XPCOMUtils.defineLazyModuleGetter(this, "ExtensionStorage",
                                   "resource://gre/modules/ExtensionStorage.jsm");
-// XPCOMUtils.defineLazyModuleGetter(this, "ExtensionStorageSync",
-//                                   "resource://gre/modules/ExtensionStorageSync.jsm");
-
-Cu.import("resource://services-common/moz-kinto-client.js");
-const Kinto = loadKinto();
-
-XPCOMUtils.defineLazyModuleGetter(this, "Preferences",
-                                  "resource://gre/modules/Preferences.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "ExtensionStorageSync",
+                                  "resource://gre/modules/ExtensionStorageSync.jsm");
 
 Cu.import("resource://gre/modules/ExtensionUtils.jsm");
 var {
@@ -25,13 +19,6 @@ function wrapRejection(err) {
     return Promise.reject({ message: err });
   }
   return Promise.reject({ message: err.message });
-}
-
-function checkEnabled() {
-  if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
-    return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
-  }
-  return Promise.resolve();
 }
 
 extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
@@ -58,40 +45,24 @@ extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
 
       sync: {
         get: function(keys, callback) {
-          return context.wrapPromise(checkEnabled().then(() => {
-            // return ExtensionStorageSync.get(extension.id, keys);
-            if (!Kinto) {
-              return Promise.reject(new Error('Not supported'));
-            }
-            return Promise.reject(new Error('Not implemented'));
-          }).catch(wrapRejection), callback);
+          return context.wrapPromise(
+            ExtensionStorageSync.get(extension.id, keys).catch(wrapRejection),
+            callback);
         },
         set: function(items, callback) {
-          return context.wrapPromise(checkEnabled().then(() => {
-            // return ExtensionStorageSync.set(extension.id, items);
-            if (!Kinto) {
-              return Promise.reject(new Error('Not supported'));
-            }
-            return Promise.reject(new Error('Not implemented'));
-          }).catch(wrapRejection), callback);
+          return context.wrapPromise(
+            ExtensionStorageSync.set(extension.id, items).catch(wrapRejection),
+            callback);
         },
         remove: function(items, callback) {
-          return context.wrapPromise(checkEnabled().then(() => {
-            // return ExtensionStorageSync.remove(extension.id, items);
-            if (!Kinto) {
-              return Promise.reject(new Error('Not supported'));
-            }
-            return Promise.reject(new Error('Not implemented'));
-          }).catch(wrapRejection), callback);
+          return context.wrapPromise(
+            ExtensionStorageSync.remove(extension.id, items).catch(wrapRejection),
+            callback);
         },
         clear: function(callback) {
-          return context.wrapPromise(checkEnabled().then(() => {
-            // return ExtensionStorageSync.clear(extension.id);
-            if (!Kinto) {
-              return Promise.reject(new Error('Not supported'));
-            }
-            return Promise.reject(new Error('Not implemented'));
-          }).catch(wrapRejection), callback);
+          return context.wrapPromise(
+            ExtensionStorageSync.clear(extension.id).catch(wrapRejection),
+            callback);
         },
       },
 
