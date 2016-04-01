@@ -1,7 +1,5 @@
 "use strict";
 
-const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
-
 var {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 XPCOMUtils.defineLazyModuleGetter(this, "ExtensionStorage",

@@ -35,7 +35,7 @@ function backgroundScript() {
     SpecialPowers.setBoolPref('extension.storage.sync.enabled', true);
     apiTests.forEach(testDef => {
       browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
-        browser.test.assertEq('Not implemented', browser.runtime.lastError.message,
+        browser.test.assertEq(`chrome.storage.sync.${testDef.method} not implemented`, browser.runtime.lastError.message,
             `storage.sync.${testDef.method} is not implemented`);
       }));
     });

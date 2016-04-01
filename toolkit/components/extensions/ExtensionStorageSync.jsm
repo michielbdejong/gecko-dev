@@ -12,11 +12,12 @@ const Cu = Components.utils;
 const Cr = Components.results;
 
 
+const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
+
 Cu.import("resource://services-common/moz-kinto-client.js");
 const Kinto = loadKinto();
 
-XPCOMUtils.defineLazyModuleGetter(this, "Preferences",
-                                  "resource://gre/modules/Preferences.jsm");
+Cu.import("resource://gre/modules/Preferences.jsm");
 
 /* globals ExtensionStorageSync */
 
@@ -24,35 +25,34 @@ function checkEnabled() {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
     return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
+  if (!Kinto) {
+    return Promise.reject(new Error('Not supported'));
+  }
   return Promise.resolve();
 }
 
 this.ExtensionStorageSync = {
   set(extensionId, items) {
-    if (!Kinto) {
-      return Promise.reject(new Error('Not supported'));
-    }
-    return Promise.reject(new Error('chrome.storage.sync.set not implemented'));
+    return checkEnabled().then(() => {
+      return Promise.reject(new Error('chrome.storage.sync.set not implemented'));
+    });
   },
 
   remove(extensionId, items) {
-    if (!Kinto) {
-      return Promise.reject(new Error('Not supported'));
-    }
-    return Promise.reject(new Error('chrome.storage.sync.remove not implemented'));
+    return checkEnabled().then(() => {
+      return Promise.reject(new Error('chrome.storage.sync.remove not implemented'));
+    });
   },
 
   clear(extensionId) {
-    if (!Kinto) {
-      return Promise.reject(new Error('Not supported'));
-    }
-    return Promise.reject(new Error('chrome.storage.sync.clear not implemented'));
+    return checkEnabled().then(() => {
+      return Promise.reject(new Error('chrome.storage.sync.clear not implemented'));
+    });
   },
 
   get(extensionId, keys) {
-    if (!Kinto) {
-      return Promise.reject(new Error('Not supported'));
-    }
-    return Promise.reject(new Error('chrome.storage.sync.get not implemented'));
+    return checkEnabled().then(() => {
+      return Promise.reject(new Error('chrome.storage.sync.get not implemented'));
+    });
   },
 };
