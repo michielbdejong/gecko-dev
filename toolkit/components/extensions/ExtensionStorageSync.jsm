@@ -57,9 +57,39 @@ function checkEnabled() {
   return itemsPromise;
 }
 
+var md5 = function(str) {
+  // Adapted from toolkit/components/url-classifier/content/moz/cryptohasher.js:
+  var hasher_ = Cc["@mozilla.org/security/hash;1"]
+                   .createInstance(Ci.nsICryptoHash);
+  hasher_.init(Ci.nsICryptoHash.MD5);
+  var stream = Cc['@mozilla.org/io/string-input-stream;1']
+                 .createInstance(Ci.nsIStringInputStream);
+  stream.setData(str, str.length);
+  if (stream.available()) {
+    hasher_.updateFromStream(stream, stream.available());
+  }
+
+  var digest = hasher_.finish(false /* not b64 encoded */);
+
+  var hexchars = '0123456789ABCDEF';
+  var hexrep = new Array(str.length * 2);
+
+  for (var i = 0; i < str.length; ++i) {
+    hexrep[i * 2] = hexchars.charAt((digest.charCodeAt(i) >> 4) & 15);
+    hexrep[i * 2 + 1] = hexchars.charAt(digest.charCodeAt(i) & 15);
+  }
+  return hexrep.join('').toLowerCase();
+}
+
 function keyToId(key) {
-  dump('\nkeyToId '+key);
-  return '12345678-1234-1234-1234-1234567890ab';
+  let md5Str = md5(key);
+  const parts = [];
+  [8,4,4,4,12].map(numChars => {
+    parts.push(md5Str.substr(0, numChars));
+    md5Str = md5Str.substr(numChars);
+  });
+  dump('keyToId ' + key + ' -> ' + parts.join('-') + '\n\n\n');
+  return parts.join("-");
 }
 
 this.ExtensionStorageSync = {
