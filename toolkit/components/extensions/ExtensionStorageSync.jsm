@@ -20,7 +20,7 @@ const db = new Kinto({
   adapter: Kinto.adapters.FirefoxAdapter,
 });
 const items = db.collection("items");
-items.db.open();
+let itemsOpened = false;
 
 Cu.import("resource://gre/modules/Preferences.jsm");
 
@@ -33,6 +33,11 @@ function checkEnabled() {
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
+  //if (!itemsOpened) {
+  //  return items.db.open().then(() => {
+  //    itemsOpened = true;
+  //  }, Cu.reportError);
+  //}
   return Promise.resolve();
 }
 
