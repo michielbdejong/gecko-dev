@@ -17,8 +17,8 @@ function backgroundScript() {
   function checkStorageSync() {
     var promises = [];
     var apiTests = [
-      { method: 'get', args: [{}], result: [null] },
-      { method: 'set', args: [{}], result: undefined },
+      { method: 'get', args: ['foo'], result: [null] },
+      { method: 'set', args: [{ foo: 'bar' }], result: undefined },
       { method: 'remove', args: ['foo'], result: undefined },
       { method: 'clear', args: [], result: undefined },
     ];

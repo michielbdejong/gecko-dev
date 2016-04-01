@@ -41,6 +41,9 @@ function openItems() {
     yield items.db.open();
   }).then(() => {
     return items;
+  }).catch(err => {
+    dump('error opening SqlLite '+err.message);
+    throw err;
   });
 }
 
@@ -55,6 +58,7 @@ function checkEnabled() {
 }
 
 function keyToId(key) {
+  dump('\nkeyToId '+key);
   return '12345678-1234-1234-1234-1234567890ab';
 }
 
@@ -91,6 +95,7 @@ this.ExtensionStorageSync = {
         }
 
         const promises = [];
+        dump('setting items' + JSON.stringify(items));
         for(let itemId in items) {
           promises.push(createOrUpdateItem({
             id: keyToId(itemId),
@@ -109,6 +114,7 @@ this.ExtensionStorageSync = {
       keys = [].concat(keys);
 
       function removeItem(key) {
+        dump('removing key '+key);
         return items.get(keyToId(key)).then(record => {
           if (!record) {
             return;
@@ -150,6 +156,7 @@ this.ExtensionStorageSync = {
       const records = {};
 
       function getRecord(key) {
+        dump('getting key '+key);
         return items.get(keyToId(key)).then(function (res) {
           if (res) {
             records[res.data.key] = res.data.data;
