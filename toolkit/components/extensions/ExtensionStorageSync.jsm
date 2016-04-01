@@ -16,6 +16,8 @@ const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
 
 Cu.import("resource://services-common/moz-kinto-client.js");
 const Kinto = loadKinto();
+const db = new Kinto();
+const items = this.db.collection("items");
 
 Cu.import("resource://gre/modules/Preferences.jsm");
 
@@ -29,6 +31,10 @@ function checkEnabled() {
     return Promise.reject(new Error('Not supported'));
   }
   return Promise.resolve();
+}
+
+function keyToId(key) {
+  return '12345678-1234-1234-1234-1234567890ab';
 }
 
 this.ExtensionStorageSync = {
@@ -52,7 +58,35 @@ this.ExtensionStorageSync = {
 
   get(extensionId, keys) {
     return checkEnabled().then(() => {
-      return Promise.reject(new Error('chrome.storage.sync.get not implemented'));
+      const records = {};
+
+      function getRecord(key) {
+        return items.get(keyToId(key)).then(function (res) {
+          if (res) {
+            records[res.data.key] = res.data.data;
+            return res.data;
+          } else {
+            return Promise.reject("boom");
+          }
+        },
+        function (rejected) {
+          // XXX we just swallow the error and not set any key
+        });
+      }
+      function getRecords(keys) {
+        return Promise.all(keys.map(key => getRecord(key)));
+      }
+
+      if (!keys) {
+        keys = [];
+        // XXX suboptimal: fetching all ids - then doing a second query
+        return items.list().then(function(res) {
+          res.data.map(r => keys.push(r.key));
+        }).then(function() {return getRecords(keys);});
+      } else {
+        keys = [].concat(keys);
+        return getRecords(keys);
+      }
     });
   },
 };
