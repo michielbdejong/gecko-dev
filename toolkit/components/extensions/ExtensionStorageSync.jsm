@@ -16,8 +16,11 @@ const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
 
 Cu.import("resource://services-common/moz-kinto-client.js");
 const Kinto = loadKinto();
-const db = new Kinto();
-const items = this.db.collection("items");
+const db = new Kinto({
+  adapter: Kinto.adapters.FirefoxAdapter,
+});
+const items = db.collection("items");
+items.db.open();
 
 Cu.import("resource://gre/modules/Preferences.jsm");
 
