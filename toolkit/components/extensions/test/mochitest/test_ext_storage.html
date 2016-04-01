@@ -15,7 +15,7 @@
 
 function backgroundScript() {
   function checkStorageSync() {
-    var successful = 0;
+    var promises = [];
     var apiTests = [
       { method: 'get', args: [{}] },
       { method: 'set', args: [{}] },
@@ -25,29 +25,29 @@ function backgroundScript() {
     apiTests.forEach(testDef => {
       browser.test.assertEq('function', typeof browser.storage.sync[testDef.method],
           `storage.sync.${testDef.method} is defined`);
-      successful++;
     });
     apiTests.forEach(testDef => {
-      browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
-        browser.test.assertEq('Please set extension.storage.sync.enabled to tr' +
-            'ue in about:config', browser.runtime.lastError.message,
-            `storage.sync.${testDef.method} is behind a flag`);
-        successful++;
+      promises.push(new Promise(resolve => {
+        browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
+          browser.test.assertEq('Please set extension.storage.sync.enabled to tr' +
+              'ue in about:config', browser.runtime.lastError.message,
+              `storage.sync.${testDef.method} is behind a flag`);
+          resolve();
+        }));
       }));
     });
     SpecialPowers.setBoolPref('extension.storage.sync.enabled', true);
     apiTests.forEach(testDef => {
-      browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
-        browser.test.assertEq(`chrome.storage.sync.${testDef.method} not implemented`, browser.runtime.lastError.message,
-            `storage.sync.${testDef.method} is not implemented`);
-        successful++;
+      promises.push(new Promise(resolve => {
+        browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
+          browser.test.assertEq(`chrome.storage.sync.${testDef.method} not implemented`, browser.runtime.lastError.message,
+              `storage.sync.${testDef.method} is not implemented`);
+          resolve();
+        }));
       }));
     });
-    setTimeout(function() {
-      browser.test.assertEq(successful, 3*4);
-    }, 100);
+    return Promise.all(promises);
   }
-  checkStorageSync();
 
   function set(items) {
     return new Promise(resolve => {
@@ -197,6 +197,8 @@ function backgroundScript() {
     browser.test.assertEq(obj.arr[0], 1, "arr[0] part correct");
     browser.test.assertEq(obj.arr[1], 2, "arr[1] part correct");
     browser.test.assertEq(obj.arr.length, 2, "arr.length part correct");
+  }).then(() => {
+    return checkStorageSync();
   }).then(() => {
     browser.test.notifyPass("storage");
   });

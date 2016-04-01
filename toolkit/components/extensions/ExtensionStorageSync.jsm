@@ -15,16 +15,12 @@ const Cr = Components.results;
 const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
 
 Cu.import("resource://services-common/moz-kinto-client.js");
-const Kinto = loadKinto();
-const db = new Kinto({
-  adapter: Kinto.adapters.FirefoxAdapter,
-});
-const items = db.collection("items");
-let itemsOpened = false;
 
 Cu.import("resource://gre/modules/Preferences.jsm");
 
 /* globals ExtensionStorageSync */
+
+var items;
 
 function checkEnabled() {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
@@ -33,11 +29,16 @@ function checkEnabled() {
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
-  //if (!itemsOpened) {
-  //  return items.db.open().then(() => {
-  //    itemsOpened = true;
-  //  }, Cu.reportError);
-  //}
+  if (!items) {
+    const Kinto = loadKinto();
+    const db = new Kinto({
+      adapter: Kinto.adapters.FirefoxAdapter,
+    });
+    const tmp = db.collection("items");
+    return tmp.db.open().then(() => {
+      items = tmp;
+    }, Cu.reportError);
+  }
   return Promise.resolve();
 }
 
