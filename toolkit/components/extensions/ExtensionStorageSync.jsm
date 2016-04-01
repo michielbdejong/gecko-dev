@@ -18,31 +18,34 @@ Cu.import("resource://services-common/moz-kinto-client.js");
 
 Cu.import("resource://gre/modules/Preferences.jsm");
 
+Cu.import("resource://gre/modules/Task.jsm");
+
 /* globals ExtensionStorageSync */
 
 var items;
+var itemsOpen;
 
 function checkEnabled() {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
     return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
-  if (!items) {
-    const Kinto = loadKinto();
-    if (!Kinto) {
-      return Promise.reject(new Error('Not supported'));
-    }
+  if (itemsOpen) {
+    return Promise.resolve();
+  }
+  dump('Loading Kinto\n');
+  const Kinto = loadKinto();
+  if (!Kinto) {
+    return Promise.reject(new Error('Not supported'));
+  }
+  return Task.spawn(function* () {
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
     });
-    const tmp = db.collection("items");
-    // return tmp.db.open().then(() => {
-    //   items = tmp;
-    // }, Cu.reportError);
-    // TODO: call tmp.db.open()
-    items = tmp;
-    return Promise.resolve();
-  }
-  return Promise.resolve();
+    items = db.collection("items");
+    yield items.db.open();
+  }).then(() => {
+    itemsOpen = true;
+  }, Cu.reportError);
 }
 
 function keyToId(key) {
