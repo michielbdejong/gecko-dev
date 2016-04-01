@@ -22,18 +22,12 @@ Cu.import("resource://gre/modules/Task.jsm");
 
 /* globals ExtensionStorageSync */
 
-var items;
-var itemsOpen;
+var itemsPromise;
 
-function checkEnabled() {
-  if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
-    return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
-  }
-  if (itemsOpen) {
-    return Promise.resolve();
-  }
+function openItems() {
   dump('Loading Kinto\n');
   const Kinto = loadKinto();
+  var items;
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
@@ -44,8 +38,18 @@ function checkEnabled() {
     items = db.collection("items");
     yield items.db.open();
   }).then(() => {
-    itemsOpen = true;
-  }, Cu.reportError);
+    return items;
+  });
+}
+
+function checkEnabled() {
+  if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
+    return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
+  }
+  if (!itemsPromise) {
+    itemsPromise = openItems();
+  }
+  return itemsPromise;
 }
 
 function keyToId(key) {
@@ -72,7 +76,7 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, keys) {
-    return checkEnabled().then(() => {
+    return checkEnabled().then(items => {
       const records = {};
 
       function getRecord(key) {

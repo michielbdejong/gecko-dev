@@ -17,7 +17,7 @@ function backgroundScript() {
   function checkStorageSync() {
     var promises = [];
     var apiTests = [
-      { method: 'get', args: [{}] },
+      { method: 'get', args: [{}], result: [null] },
       { method: 'set', args: [{}] },
       { method: 'remove', args: ['foo'] },
       { method: 'clear', args: [] },
@@ -40,8 +40,13 @@ function backgroundScript() {
     apiTests.forEach(testDef => {
       promises.push(new Promise(resolve => {
         browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
-          browser.test.assertEq(`chrome.storage.sync.${testDef.method} not implemented`, browser.runtime.lastError.message,
-              `storage.sync.${testDef.method} is not implemented`);
+          if (testDef.result) {
+            browser.test.assertEq(null, browser.runtime.lastError);
+            browser.test.assertEq(testDef.result, res);
+          } else {
+            browser.test.assertEq(`chrome.storage.sync.${testDef.method} not implemented`, browser.runtime.lastError.message,
+                `storage.sync.${testDef.method} is not implemented`);
+          }
           resolve();
         }));
       }));
