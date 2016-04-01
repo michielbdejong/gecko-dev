@@ -2723,6 +2723,7 @@ class Collection {
       transaction.create(newRecord);
       return { data: newRecord, permissions: {} };
     }).catch(err => {
+      dump('\n\nERROR!!!' + err.message);
       if (options.useRecordId) {
         throw new Error("Couldn't create record. It may have been virtually deleted.");
       }

@@ -13,6 +13,8 @@ const Cr = Components.results;
 
 
 const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
+const AREA_NAME = 'sync';
+
 
 Cu.import("resource://services-common/moz-kinto-client.js");
 
@@ -58,20 +60,88 @@ function keyToId(key) {
 
 this.ExtensionStorageSync = {
   set(extensionId, items) {
-    return checkEnabled().then(() => {
-      return Promise.reject(new Error('chrome.storage.sync.set not implemented'));
+    dump('setting' + JSON.stringify(items));
+    return checkEnabled().then(items => {
+      function createOrUpdateItem(record) {
+        function createItem() {
+          // storage.onChanged._addChange(AREA_NAME, record.key, undefined, record.data);
+          return items.create(record, {useRecordId: true});
+        }
+
+        function updateItem(old_record) {
+          // storage.onChanged._addChange(AREA_NAME, record.key, old_record, record.data);
+          if (old_record._status === "deleted") {
+            return items.delete(old_record.id, { virtual: false }).then(() => {
+              return items.create(record, {useRecordId: true});
+            });
+          }
+          return items.update(record);
+        }
+
+        return items.get(record.id, { includeDeleted: true })
+          .then(function(old_record) {
+            return updateItem(old_record.data);
+          }, function(reason) {
+            if (reason.message.indexOf(" not found.") !== -1) {
+              return createItem();
+            }
+            dump('\n\nhave reason ' + reason + JSON.stringify(record));
+            throw reason;
+          });
+        }
+
+        const promises = [];
+        for(let itemId in items) {
+          promises.push(createOrUpdateItem({
+            id: keyToId(itemId),
+            key: itemId,
+            data: items[itemId]
+          }));
+        }
+        return Promise.all(promises).then(results => {
+          // storage.onChanged._emit(AREA_NAME);
+        });
     });
   },
 
-  remove(extensionId, items) {
-    return checkEnabled().then(() => {
-      return Promise.reject(new Error('chrome.storage.sync.remove not implemented'));
+  remove(extensionId, keys) {
+    return checkEnabled().then(items => {
+      keys = [].concat(keys);
+
+      function removeItem(key) {
+        return items.get(keyToId(key)).then(record => {
+          if (!record) {
+            return;
+          }
+          // storage.onChanged._addChange(AREA_NAME, key, record.data.data, undefined);
+          return items.delete(keyToId(key));
+        }).catch(err => {
+          if (err.message.indexOf(" not found.") !== -1) {
+            return;
+          }
+          throw err;
+        });
+      }
+      return Promise.all(keys.map(removeItem))
+        .then(() => {
+          // storage.onChanged._emit(AREA_NAME);
+        });
+
     });
   },
 
   clear(extensionId) {
-    return checkEnabled().then(() => {
-      return Promise.reject(new Error('chrome.storage.sync.clear not implemented'));
+    return checkEnabled().then(items => {
+      items.list()
+        .then(records => {
+          const promises = records.data.map(record => {
+            // storage.onChanged._addChange(AREA_NAME, record.key, record.data, undefined);
+            return items.delete(record.id);
+          });
+          return Promise.all(promises);
+        }).then(() => {
+          // storage.onChanged._emit(AREA_NAME);
+        });
     });
   },
 

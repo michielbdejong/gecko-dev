@@ -18,9 +18,9 @@ function backgroundScript() {
     var promises = [];
     var apiTests = [
       { method: 'get', args: [{}], result: [null] },
-      { method: 'set', args: [{}] },
-      { method: 'remove', args: ['foo'] },
-      { method: 'clear', args: [] },
+      { method: 'set', args: [{}], result: undefined },
+      { method: 'remove', args: ['foo'], result: undefined },
+      { method: 'clear', args: [], result: undefined },
     ];
     apiTests.forEach(testDef => {
       browser.test.assertEq('function', typeof browser.storage.sync[testDef.method],
@@ -40,13 +40,8 @@ function backgroundScript() {
     apiTests.forEach(testDef => {
       promises.push(new Promise(resolve => {
         browser.storage.sync[testDef.method].apply(undefined, testDef.args.concat(function(res) {
-          if (testDef.result) {
-            browser.test.assertEq(null, browser.runtime.lastError);
-            browser.test.assertEq(testDef.result, res);
-          } else {
-            browser.test.assertEq(`chrome.storage.sync.${testDef.method} not implemented`, browser.runtime.lastError.message,
-                `storage.sync.${testDef.method} is not implemented`);
-          }
+          browser.test.assertEq(null, browser.runtime.lastError, `error with ${testDef.method}`);
+          browser.test.assertEq(JSON.stringify(testDef.result), JSON.stringify(res), `wrong callback ${testDef.method}`);
           resolve();
         }));
       }));
