@@ -24,12 +24,12 @@ Cu.import("resource://gre/modules/Task.jsm");
 
 /* globals ExtensionStorageSync */
 
-var itemsPromise;
+var collPromise;
 
-function openItems() {
+function openColl() {
   dump('Loading Kinto\n');
   const Kinto = loadKinto();
-  var items;
+  var coll;
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
@@ -37,10 +37,10 @@ function openItems() {
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
     });
-    items = db.collection("items");
-    yield items.db.open();
+    coll = db.collection("items");
+    yield coll.db.open();
   }).then(() => {
-    return items;
+    return coll;
   }).catch(err => {
     dump('error opening SqlLite '+err.message);
     throw err;
@@ -51,10 +51,10 @@ function checkEnabled() {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
     return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
-  if (!itemsPromise) {
-    itemsPromise = openItems();
+  if (!collPromise) {
+    collPromise = openColl();
   }
-  return itemsPromise;
+  return collPromise;
 }
 
 var md5 = function(str) {
@@ -97,24 +97,24 @@ function keyToId(key) {
 this.ExtensionStorageSync = {
   set(extensionId, items) {
     dump('setting' + JSON.stringify(items));
-    return checkEnabled().then(items => {
+    return checkEnabled().then(coll => {
       function createOrUpdateItem(record) {
         function createItem() {
           // storage.onChanged._addChange(AREA_NAME, record.key, undefined, record.data);
-          return items.create(record, {useRecordId: true});
+          return coll.create(record, {useRecordId: true});
         }
 
         function updateItem(old_record) {
           // storage.onChanged._addChange(AREA_NAME, record.key, old_record, record.data);
           if (old_record._status === "deleted") {
-            return items.delete(old_record.id, { virtual: false }).then(() => {
-              return items.create(record, {useRecordId: true});
+            return coll.delete(old_record.id, { virtual: false }).then(() => {
+              return coll.create(record, {useRecordId: true});
             });
           }
-          return items.update(record);
+          return coll.update(record);
         }
 
-        return items.get(record.id, { includeDeleted: true })
+        return coll.get(record.id, { includeDeleted: true })
           .then(function(old_record) {
             return updateItem(old_record.data);
           }, function(reason) {
@@ -142,17 +142,17 @@ this.ExtensionStorageSync = {
   },
 
   remove(extensionId, keys) {
-    return checkEnabled().then(items => {
+    return checkEnabled().then(coll => {
       keys = [].concat(keys);
 
       function removeItem(key) {
         dump('removing key '+key);
-        return items.get(keyToId(key)).then(record => {
+        return coll.get(keyToId(key)).then(record => {
           if (!record) {
             return;
           }
           // storage.onChanged._addChange(AREA_NAME, key, record.data.data, undefined);
-          return items.delete(keyToId(key));
+          return coll.delete(keyToId(key));
         }).catch(err => {
           if (err.message.indexOf(" not found.") !== -1) {
             return;
@@ -169,12 +169,12 @@ this.ExtensionStorageSync = {
   },
 
   clear(extensionId) {
-    return checkEnabled().then(items => {
-      items.list()
+    return checkEnabled().then(coll => {
+      coll.list()
         .then(records => {
           const promises = records.data.map(record => {
             // storage.onChanged._addChange(AREA_NAME, record.key, record.data, undefined);
-            return items.delete(record.id);
+            return coll.delete(record.id);
           });
           return Promise.all(promises);
         }).then(() => {
@@ -184,12 +184,12 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, keys) {
-    return checkEnabled().then(items => {
+    return checkEnabled().then(coll => {
       const records = {};
 
       function getRecord(key) {
         dump('getting key '+key);
-        return items.get(keyToId(key)).then(function (res) {
+        return coll.get(keyToId(key)).then(function (res) {
           if (res) {
             records[res.data.key] = res.data.data;
             return res.data;
@@ -208,7 +208,7 @@ this.ExtensionStorageSync = {
       if (!keys) {
         keys = [];
         // XXX suboptimal: fetching all ids - then doing a second query
-        return items.list().then(function(res) {
+        return coll.list().then(function(res) {
           res.data.map(r => keys.push(r.key));
         }).then(function() {return getRecords(keys);});
       } else {
