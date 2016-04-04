@@ -115,15 +115,19 @@ this.ExtensionStorageSync = {
         }
 
         function updateItem(old_record) {
-          changes[record.key] = {
-            oldValue: old_record.data,
-            newValue: record.data
-          };
           if (old_record._status === "deleted") {
+            changes[record.key] = {
+              oldValue: undefined,
+              newValue: record.data
+            };
             return coll.delete(old_record.id, { virtual: false }).then(() => {
               return coll.create(record, {useRecordId: true});
             });
           }
+          changes[record.key] = {
+            oldValue: old_record.data,
+            newValue: record.data
+          };
           return coll.update(record);
         }
 
