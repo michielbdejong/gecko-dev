@@ -382,6 +382,7 @@ function transactionProxy(collection, preloaded) {
     },
 
     delete(id) {
+      dump('\ndeleting ' + id);
       _operations.push({
         statement: statements.deleteData,
         params: {

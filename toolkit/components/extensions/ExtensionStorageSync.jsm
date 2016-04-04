@@ -116,7 +116,7 @@ this.ExtensionStorageSync = {
 
         function updateItem(old_record) {
           changes[record.key] = {
-            oldValue: old_record,
+            oldValue: old_record.data,
             newValue: record.data
           };
           if (old_record._status === "deleted") {
@@ -151,6 +151,7 @@ this.ExtensionStorageSync = {
         }));
       }
       return Promise.all(promises).then(results => {
+        dump('notifying after set');
         this.notifyListeners(extensionId, changes);
       });
     }).then(res => {
@@ -177,6 +178,7 @@ this.ExtensionStorageSync = {
             oldValue: record.data.data,
             newValue: undefined
           };
+          dump('added removal change', JSON.stringify(record));
           return coll.delete(keyToId(key));
         }).catch(err => {
           if (err.message.indexOf(" not found.") !== -1) {
@@ -187,6 +189,7 @@ this.ExtensionStorageSync = {
       }
       return Promise.all(keys.map(removeItem))
         .then(() => {
+          dump('notifying after remove');
           this.notifyListeners(extensionId, changes);
         });
 
@@ -196,19 +199,22 @@ this.ExtensionStorageSync = {
   clear(extensionId) {
     return checkEnabled().then(coll => {
       let changes = [];
-      coll.list()
-        .then(records => {
-          const promises = records.data.map(record => {
-            changes[record.key] = {
-              oldValue: record.data,
-              newValue: undefined
-            };
-            return coll.delete(record.id);
-          });
-          return Promise.all(promises);
-        }).then(() => {
-          this.notifyListeners(extensionId, changes);
+      return coll.list().then(records => {
+        dump('\n\n\n\nclear removes records '+JSON.stringify(records) + '\n\n\n\n');
+        const promises = records.data.map(record => {
+          dump('\n\n\n\nclear removes '+JSON.stringify(record) + '\n\n\n\n');
+          changes[record.key] = {
+            oldValue: record.data,
+            newValue: undefined
+          };
+          return coll.delete(record.id);
         });
+        return Promise.all(promises);
+      }).then(result => {
+        dump('notifying after clear '+ JSON.stringify(result) +
+            ' changes:' + JSON.stringify(changes));
+        this.notifyListeners(extensionId, changes);
+      });
     });
   },
 
@@ -216,8 +222,12 @@ this.ExtensionStorageSync = {
     return checkEnabled().then(coll => {
       let keys, records;
       if (spec === null) {
+        records = {};
         return coll.list().then(function(res) {
-          return res.data;
+          res.data.map(record => {
+            records[record.key] = record.data;
+          });
+          return records;
         });
       }
       if (typeof spec === 'string') {

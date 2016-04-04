@@ -23,17 +23,17 @@ extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
   return {
     storage: {
       local: {
-        get: function(keys, callback) {
+        get: function(spec, callback) {
           return context.wrapPromise(
-            ExtensionStorage.get(extension.id, keys), callback);
+            ExtensionStorage.get(extension.id, spec), callback);
         },
         set: function(items, callback) {
           return context.wrapPromise(
             ExtensionStorage.set(extension.id, items), callback);
         },
-        remove: function(items, callback) {
+        remove: function(keys, callback) {
           return context.wrapPromise(
-            ExtensionStorage.remove(extension.id, items), callback);
+            ExtensionStorage.remove(extension.id, keys), callback);
         },
         clear: function(callback) {
           return context.wrapPromise(
@@ -42,9 +42,9 @@ extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
       },
 
       sync: {
-        get: function(keys, callback) {
+        get: function(spec, callback) {
           return context.wrapPromise(
-            ExtensionStorageSync.get(extension.id, keys).catch(wrapRejection),
+            ExtensionStorageSync.get(extension.id, spec).catch(wrapRejection),
             callback);
         },
         set: function(items, callback) {
@@ -52,9 +52,9 @@ extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
             ExtensionStorageSync.set(extension.id, items).catch(wrapRejection),
             callback);
         },
-        remove: function(items, callback) {
+        remove: function(keys, callback) {
           return context.wrapPromise(
-            ExtensionStorageSync.remove(extension.id, items).catch(wrapRejection),
+            ExtensionStorageSync.remove(extension.id, keys).catch(wrapRejection),
             callback);
         },
         clear: function(callback) {
