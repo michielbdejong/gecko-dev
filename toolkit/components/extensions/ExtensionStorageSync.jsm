@@ -183,11 +183,26 @@ this.ExtensionStorageSync = {
     });
   },
 
-  get(extensionId, keys) {
+  get(extensionId, spec) {
     return checkEnabled().then(coll => {
-      const records = {};
+      let keys, records;
+      if (spec === null) {
+        return coll.list().then(function(res) {
+          return res.data;
+        });
+      }
+      if (typeof spec === 'string') {
+        keys = [spec];
+        records = {};
+      } else if (Array.isArray(spec)) {
+        keys = spec;
+        records = {};
+      } else {
+        keys = Object.keys(spec);
+        records = spec;
+      }
 
-      function getRecord(key) {
+      return Promise.all(keys.map(key => {
         dump('getting key '+key);
         return coll.get(keyToId(key)).then(function (res) {
           if (res) {
@@ -196,25 +211,12 @@ this.ExtensionStorageSync = {
           } else {
             return Promise.reject("boom");
           }
-        },
-        function (rejected) {
+        }, function () {
           // XXX we just swallow the error and not set any key
         });
-      }
-      function getRecords(keys) {
-        return Promise.all(keys.map(key => getRecord(key)));
-      }
-
-      if (!keys) {
-        keys = [];
-        // XXX suboptimal: fetching all ids - then doing a second query
-        return coll.list().then(function(res) {
-          res.data.map(r => keys.push(r.key));
-        }).then(function() {return getRecords(keys);});
-      } else {
-        keys = [].concat(keys);
-        return getRecords(keys);
-      }
+      })).then(() => {
+        return records;
+      });
     });
   },
 };
