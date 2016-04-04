@@ -26,7 +26,7 @@ Cu.import("resource://gre/modules/Task.jsm");
 
 var collPromise;
 
-function openColl() {
+function openColl(extensionId) {
   dump('Loading Kinto\n');
   const Kinto = loadKinto();
   var coll;
@@ -37,8 +37,8 @@ function openColl() {
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
     });
-    coll = db.collection("items");
-    yield coll.db.open();
+    coll = db.collection(extensionId);
+    yield coll.db.open('storage-sync.sqlite');
   }).then(() => {
     return coll;
   }).catch(err => {
@@ -47,13 +47,13 @@ function openColl() {
   });
 }
 
-function checkEnabled() {
+function getCollection(extensionId) {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
     return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
   if (!collPromise) {
     dump('opening coll!');
-    collPromise = openColl();
+    collPromise = openColl(extensionId);
   }
   dump('returning coll');
   return collPromise;
@@ -101,7 +101,7 @@ this.ExtensionStorageSync = {
 
   set(extensionId, items) {
     dump('setting' + JSON.stringify(items));
-    return checkEnabled().then(coll => {
+    return getCollection(extensionId).then(coll => {
       dump('enabled!');
       let changes = {};
 
@@ -168,7 +168,7 @@ this.ExtensionStorageSync = {
   },
 
   remove(extensionId, keys) {
-    return checkEnabled().then(coll => {
+    return getCollection(extensionId).then(coll => {
       keys = [].concat(keys);
       let changes = {};
 
@@ -201,7 +201,7 @@ this.ExtensionStorageSync = {
   },
 
   clear(extensionId) {
-    return checkEnabled().then(coll => {
+    return getCollection(extensionId).then(coll => {
       let changes = [];
       return coll.list().then(records => {
         dump('\n\n\n\nclear removes records '+JSON.stringify(records) + '\n\n\n\n');
@@ -223,7 +223,7 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, spec) {
-    return checkEnabled().then(coll => {
+    return getCollection(extensionId).then(coll => {
       let keys, records;
       if (spec === null) {
         records = {};

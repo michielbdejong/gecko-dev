@@ -168,10 +168,13 @@ class FirefoxAdapter extends _base2.default {
     return this._connection.executeCached(statement, params);
   }
 
-  open() {
+  open(path) {
+    if (typeof path !== 'string') {
+      path = "kinto.sqlite";
+    }
     const self = this;
     return Task.spawn(function* () {
-      const opts = { path: "kinto.sqlite", sharedMemoryCache: false };
+      const opts = { path, sharedMemoryCache: false };
       if (!self._connection) {
         self._connection = yield Sqlite.openConnection(opts).then(self._init);
       }
