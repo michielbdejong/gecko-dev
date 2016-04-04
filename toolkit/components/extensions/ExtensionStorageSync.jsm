@@ -22,18 +22,32 @@ Cu.import("resource://gre/modules/Preferences.jsm");
 
 Cu.import("resource://gre/modules/Task.jsm");
 
+Cu.import("resource://gre/modules/FxAccountsStorage.jsm");
+
 /* globals ExtensionStorageSync */
 
 var collPromise;
 
 function openColl(extensionId) {
-  dump('Loading Kinto\n');
+  dump('Loading Kinto\n' + extensionId);
+  // From FxA:
+  // Kinto creds
+  // encryption key
+  // idea: check how FxOS does it, use SyncTo to a 'content' collection.
+
+  // step 1: when logged in, expose FxA account data, to check
+  // step 2: access the existing FxSync data here
+  // step 3: add a 'content' collection, Kinto.js-Api object.
   const Kinto = loadKinto();
   var coll;
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
   return Task.spawn(function* () {
+    let remoteTransformers = [];
+    // if (accountData.kB) {
+    //   remoteTransformers.push(new CryptoTransformer(accountData.kB));
+    // }
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
     });
@@ -49,7 +63,7 @@ function openColl(extensionId) {
 
 function getCollection(extensionId) {
   if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
-    return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
+//    return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
   if (!collPromise) {
     dump('opening coll!');
@@ -223,7 +237,13 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, spec) {
+    // let sm = new FxAccountsStorageManager();
+    // let accountData = sm.getAccountData();
+    // dump(JSON.stringify(spec) + ' - kB: ' + JSON.stringify(accountData));
     return getCollection(extensionId).then(coll => {
+      // if (spec === 'fxa') {
+      //   return 'Look:'+JSON.stringify(accountData);
+      // }
       let keys, records;
       if (spec === null) {
         records = {};
