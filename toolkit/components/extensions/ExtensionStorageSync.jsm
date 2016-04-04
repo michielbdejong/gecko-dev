@@ -58,6 +58,8 @@ function checkEnabled() {
 }
 
 var md5 = function(str) {
+  // In a deterministic way, make sure string is long enough:
+  str = '-----------------------------' + str;
   // Adapted from toolkit/components/url-classifier/content/moz/cryptohasher.js:
   var hasher_ = Cc["@mozilla.org/security/hash;1"]
                    .createInstance(Ci.nsICryptoHash);

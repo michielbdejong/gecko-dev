@@ -173,7 +173,11 @@ class FirefoxAdapter extends _base2.default {
     return Task.spawn(function* () {
       const opts = { path: "kinto.sqlite", sharedMemoryCache: false };
       if (!self._connection) {
-        self._connection = yield Sqlite.openConnection(opts).then(self._init);
+        dump('\n\nopening connection '+JSON.stringify(opts)+'\n\n');
+        self._connection = yield {
+          executeCached: function() { return Promise.resolve(''); },
+          executeTransaction: function() { return Promise.resolve(''); }
+        };//Sqlite.openConnection(opts).then(self._init);
       }
     });
   }
