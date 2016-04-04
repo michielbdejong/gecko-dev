@@ -95,17 +95,27 @@ function keyToId(key) {
 }
 
 this.ExtensionStorageSync = {
+  listeners: new Map(),
+
   set(extensionId, items) {
     dump('setting' + JSON.stringify(items));
     return checkEnabled().then(coll => {
+      let changes = {};
+
       function createOrUpdateItem(record) {
         function createItem() {
-          // storage.onChanged._addChange(AREA_NAME, record.key, undefined, record.data);
+          changes[record.key] = {
+            oldValue: undefined,
+            newValue: record.data
+          };
           return coll.create(record, {useRecordId: true});
         }
 
         function updateItem(old_record) {
-          // storage.onChanged._addChange(AREA_NAME, record.key, old_record, record.data);
+          changes[record.key] = {
+            oldValue: old_record,
+            newValue: record.data
+          };
           if (old_record._status === "deleted") {
             return coll.delete(old_record.id, { virtual: false }).then(() => {
               return coll.create(record, {useRecordId: true});
@@ -136,7 +146,7 @@ this.ExtensionStorageSync = {
           }));
         }
         return Promise.all(promises).then(results => {
-          // storage.onChanged._emit(AREA_NAME);
+          this.notifyListeners(extensionId, changes);
         });
     });
   },
@@ -144,6 +154,7 @@ this.ExtensionStorageSync = {
   remove(extensionId, keys) {
     return checkEnabled().then(coll => {
       keys = [].concat(keys);
+      let changes = {};
 
       function removeItem(key) {
         dump('removing key '+key);
@@ -151,7 +162,10 @@ this.ExtensionStorageSync = {
           if (!record) {
             return;
           }
-          // storage.onChanged._addChange(AREA_NAME, key, record.data.data, undefined);
+          changes[key] = {
+            oldValue: record.data.data,
+            newValue: undefined
+          };
           return coll.delete(keyToId(key));
         }).catch(err => {
           if (err.message.indexOf(" not found.") !== -1) {
@@ -162,7 +176,7 @@ this.ExtensionStorageSync = {
       }
       return Promise.all(keys.map(removeItem))
         .then(() => {
-          // storage.onChanged._emit(AREA_NAME);
+          this.notifyListeners(extensionId, changes);
         });
 
     });
@@ -170,15 +184,19 @@ this.ExtensionStorageSync = {
 
   clear(extensionId) {
     return checkEnabled().then(coll => {
+      let changes = [];
       coll.list()
         .then(records => {
           const promises = records.data.map(record => {
-            // storage.onChanged._addChange(AREA_NAME, record.key, record.data, undefined);
+            changes[record.key] = {
+              oldValue: record.data,
+              newValue: undefined
+            };
             return coll.delete(record.id);
           });
           return Promise.all(promises);
         }).then(() => {
-          // storage.onChanged._emit(AREA_NAME);
+          this.notifyListeners(extensionId, changes);
         });
     });
   },
@@ -218,5 +236,25 @@ this.ExtensionStorageSync = {
         return records;
       });
     });
+  },
+
+  addOnChangedListener(extensionId, listener) {
+    let listeners = this.listeners.get(extensionId) || new Set();
+    listeners.add(listener);
+    this.listeners.set(extensionId, listeners);
+  },
+
+  removeOnChangedListener(extensionId, listener) {
+    let listeners = this.listeners.get(extensionId);
+    listeners.delete(listener);
+  },
+
+  notifyListeners(extensionId, changes) {
+    let listeners = this.listeners.get(extensionId);
+    if (listeners) {
+      for (let listener of listeners) {
+        listener(changes);
+      }
+    }
   },
 };

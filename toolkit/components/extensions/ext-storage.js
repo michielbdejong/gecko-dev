@@ -64,14 +64,19 @@ extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
         },
       },
 
-      onChanged: new EventManager(context, "storage.local.onChanged", fire => {
-        let listener = changes => {
-          fire(changes, "local");
+      onChanged: new EventManager(context, "storage.onChanged", fire => {
+        let listenerLocal = changes => {
+          fire(changes, 'local');
+        };
+        let listenerSync = changes => {
+          fire(changes, 'sync');
         };
 
-        ExtensionStorage.addOnChangedListener(extension.id, listener);
+        ExtensionStorage.addOnChangedListener(extension.id, listenerLocal);
+        ExtensionStorageSync.addOnChangedListener(extension.id, listenerSync);
         return () => {
-          ExtensionStorage.removeOnChangedListener(extension.id, listener);
+          ExtensionStorage.removeOnChangedListener(extension.id, listenerLocal);
+          ExtensionStorageSync.removeOnChangedListener(extension.id, listenerSync);
         };
       }).api(),
     },
