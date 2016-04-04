@@ -208,8 +208,15 @@ XPCOMUtils.defineLazyGetter(this, "Barriers", () => {
  * dispatch its method calls here.
  */
 function ConnectionData(connection, identifier, options={}) {
-  this._log = Log.repository.getLoggerWithMessagePrefix("Sqlite.Connection",
-                                                        identifier + ": ");
+  // this._log = Log.repository.getLoggerWithMessagePrefix("Sqlite.Connection",
+  //                                                       identifier + ": ");
+  this._log = {
+    debug: function(str) {dump('\nDEBUG:'+str+'\n')},
+    info: function(str) {dump('\nINFO:'+str+'\n')},
+    warn: function(str) {dump('\nWARN:'+str+'\n')},
+    error: function(str) {dump('\nERROR:'+str+'\n')},
+  };
+
   this._log.info("Opened");
 
   this._dbConn = connection;
@@ -881,8 +888,13 @@ ConnectionData.prototype = Object.freeze({
  * @return Promise<OpenedConnection>
  */
 function openConnection(options) {
-  let log = Log.repository.getLogger("Sqlite.ConnectionOpener");
-
+  // let log = Log.repository.getLogger("Sqlite.ConnectionOpener");
+  let log = {
+    debug: function(str) {dump('\nDEBUG:'+str+'\n')},
+    info: function(str) {dump('\nINFO:'+str+'\n')},
+    warn: function(str) {dump('\nWARN:'+str+'\n')},
+    error: function(str) {dump('\nERROR:'+str+'\n')},
+  };
   if (!options.path) {
     throw new Error("path not specified in connection options.");
   }
@@ -893,7 +905,7 @@ function openConnection(options) {
 
   // Retains absolute paths and normalizes relative as relative to profile.
   let path = OS.Path.join(OS.Constants.Path.profileDir, options.path);
-
+dump('\n\n\njoined path '+path+'\n\n\n');
   let sharedMemoryCache = "sharedMemoryCache" in options ?
                             options.sharedMemoryCache : true;
 
