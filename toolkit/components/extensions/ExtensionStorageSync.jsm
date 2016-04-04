@@ -52,8 +52,10 @@ function checkEnabled() {
     return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
   }
   if (!collPromise) {
+    dump('opening coll!');
     collPromise = openColl();
   }
+  dump('returning coll');
   return collPromise;
 }
 
@@ -100,6 +102,7 @@ this.ExtensionStorageSync = {
   set(extensionId, items) {
     dump('setting' + JSON.stringify(items));
     return checkEnabled().then(coll => {
+      dump('enabled!');
       let changes = {};
 
       function createOrUpdateItem(record) {
@@ -126,28 +129,36 @@ this.ExtensionStorageSync = {
 
         return coll.get(record.id, { includeDeleted: true })
           .then(function(old_record) {
+            dump('old_record!');
             return updateItem(old_record.data);
           }, function(reason) {
+            dump('no old_record!');
             if (reason.message.indexOf(" not found.") !== -1) {
               return createItem();
             }
             dump('\n\nhave reason ' + reason + JSON.stringify(record));
             throw reason;
           });
-        }
+      }
 
-        const promises = [];
-        dump('setting items' + JSON.stringify(items));
-        for(let itemId in items) {
-          promises.push(createOrUpdateItem({
-            id: keyToId(itemId),
-            key: itemId,
-            data: items[itemId]
-          }));
-        }
-        return Promise.all(promises).then(results => {
-          this.notifyListeners(extensionId, changes);
-        });
+      const promises = [];
+      dump('setting items' + JSON.stringify(items));
+      for(let itemId in items) {
+        promises.push(createOrUpdateItem({
+          id: keyToId(itemId),
+          key: itemId,
+          data: items[itemId]
+        }));
+      }
+      return Promise.all(promises).then(results => {
+        this.notifyListeners(extensionId, changes);
+      });
+    }).then(res => {
+      dump('set success' + JSON.stringify(res));
+      return res;
+    }, err => {
+      dump('set fail' + JSON.stringify(err));
+      throw err;
     });
   },
 
@@ -242,14 +253,17 @@ this.ExtensionStorageSync = {
     let listeners = this.listeners.get(extensionId) || new Set();
     listeners.add(listener);
     this.listeners.set(extensionId, listeners);
+    dump("Added a listener!" + extensionId);
   },
 
   removeOnChangedListener(extensionId, listener) {
     let listeners = this.listeners.get(extensionId);
     listeners.delete(listener);
+    dump("Removed a listener!" + extensionId);
   },
 
   notifyListeners(extensionId, changes) {
+    dump("Notifying listeners!" + extensionId + JSON.stringify(changes));
     let listeners = this.listeners.get(extensionId);
     if (listeners) {
       for (let listener of listeners) {

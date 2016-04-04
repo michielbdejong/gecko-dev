@@ -66,9 +66,11 @@ extensions.registerSchemaAPI("storage", "storage", (extension, context) => {
 
       onChanged: new EventManager(context, "storage.onChanged", fire => {
         let listenerLocal = changes => {
+          dump("\n\n\n\n\n\nFIRING LOCAL" + JSON.stringify(changes));
           fire(changes, 'local');
         };
         let listenerSync = changes => {
+          dump("\n\n\n\n\n\nFIRING SYNC" + JSON.stringify(changes));
           fire(changes, 'sync');
         };
 
