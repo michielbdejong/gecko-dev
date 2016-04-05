@@ -48,16 +48,34 @@ function openColl(extensionId) {
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
-  return Task.spawn(function* () {
-    let remoteTransformers = [];
-    // if (accountData.kB) {
-    //   remoteTransformers.push(new CryptoTransformer(accountData.kB));
-    // }
-    const db = new Kinto({
-      adapter: Kinto.adapters.FirefoxAdapter,
+  function encoderFunc(kB) {
+    return function(record) {
+      dump('fake encoding ' + kB + ' ' + JSON.stringify(record));
+      return record;
+    };
+  }
+
+  function decoderFunc(kB) {
+    return function(record) {
+      dump('fake decoding ' + kB + ' ' + JSON.stringify(record));
+      return record;
+    };
+  }
+  // return fxAccounts.getSignedInUser().then(user => {
+  return Promise.resolve().then(user => {
+    return Task.spawn(function* () {
+      let db = new Kinto({
+        adapter: Kinto.adapters.FirefoxAdapter,
+        remoteTransformers: [
+          {
+            encode: encoderFunc((user ? user.kB : 'not signed in')),
+            decode: decoderFunc((user ? user.kB : 'not signed in'))
+          }
+        ]
+      });
+      coll = db.collection(extensionId);
+      yield coll.db.open('storage-sync.sqlite');
     });
-    coll = db.collection(extensionId);
-    yield coll.db.open('storage-sync.sqlite');
   }).then(() => {
     return coll;
   }).catch(err => {
@@ -242,53 +260,44 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, spec) {
-    dump('getting userz');
-    return fxAccounts.getSignedInUser().then(user => {
-      dump('Lookz:'+JSON.stringify(user));
-      return 'Lookz:'+JSON.stringify(user);
+    return getCollection(extensionId).then(coll => {
+      let keys, records;
+      if (spec === null) {
+        records = {};
+        return coll.list().then(function(res) {
+          res.data.map(record => {
+            records[record.key] = record.data;
+          });
+          return records;
+        });
+      }
+      if (typeof spec === 'string') {
+        keys = [spec];
+        records = {};
+      } else if (Array.isArray(spec)) {
+        keys = spec;
+        records = {};
+      } else {
+        keys = Object.keys(spec);
+        records = spec;
+      }
+
+      return Promise.all(keys.map(key => {
+        dump('getting key '+key);
+        return coll.get(keyToId(key)).then(function (res) {
+          if (res) {
+            records[res.data.key] = res.data.data;
+            return res.data;
+          } else {
+            return Promise.reject("boom");
+          }
+        }, function () {
+          // XXX we just swallow the error and not set any key
+        });
+      })).then(() => {
+        return records;
+      });
     });
-    //
-    // let sm = new FxAccountsStorageManager();
-    // let accountData = sm.getAccountData();
-    // dump(JSON.stringify(spec) + ' - kB: ' + JSON.stringify(accountData));
-    // return getCollection(extensionId).then(coll => {
-    //   let keys, records;
-    //   if (spec === null) {
-    //     records = {};
-    //     return coll.list().then(function(res) {
-    //       res.data.map(record => {
-    //         records[record.key] = record.data;
-    //       });
-    //       return records;
-    //     });
-    //   }
-    //   if (typeof spec === 'string') {
-    //     keys = [spec];
-    //     records = {};
-    //   } else if (Array.isArray(spec)) {
-    //     keys = spec;
-    //     records = {};
-    //   } else {
-    //     keys = Object.keys(spec);
-    //     records = spec;
-    //   }
-    //
-    //   return Promise.all(keys.map(key => {
-    //     dump('getting key '+key);
-    //     return coll.get(keyToId(key)).then(function (res) {
-    //       if (res) {
-    //         records[res.data.key] = res.data.data;
-    //         return res.data;
-    //       } else {
-    //         return Promise.reject("boom");
-    //       }
-    //     }, function () {
-    //       // XXX we just swallow the error and not set any key
-    //     });
-    //   })).then(() => {
-    //     return records;
-    //   });
-    // });
   },
 
   addOnChangedListener(extensionId, listener) {
