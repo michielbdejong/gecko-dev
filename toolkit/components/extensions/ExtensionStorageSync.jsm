@@ -23,6 +23,11 @@ Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource://gre/modules/Task.jsm");
 
 Cu.import("resource://gre/modules/FxAccountsStorage.jsm");
+Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/FxAccounts.jsm");
+var fxAccountsCommon = {};
+Cu.import("resource://gre/modules/FxAccountsCommon.js", fxAccountsCommon);
+
 
 /* globals ExtensionStorageSync */
 
@@ -237,50 +242,53 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, spec) {
+    dump('getting userz');
+    return fxAccounts.getSignedInUser().then(user => {
+      dump('Lookz:'+JSON.stringify(user));
+      return 'Lookz:'+JSON.stringify(user);
+    });
+    //
     // let sm = new FxAccountsStorageManager();
     // let accountData = sm.getAccountData();
     // dump(JSON.stringify(spec) + ' - kB: ' + JSON.stringify(accountData));
-    return getCollection(extensionId).then(coll => {
-      // if (spec === 'fxa') {
-      //   return 'Look:'+JSON.stringify(accountData);
-      // }
-      let keys, records;
-      if (spec === null) {
-        records = {};
-        return coll.list().then(function(res) {
-          res.data.map(record => {
-            records[record.key] = record.data;
-          });
-          return records;
-        });
-      }
-      if (typeof spec === 'string') {
-        keys = [spec];
-        records = {};
-      } else if (Array.isArray(spec)) {
-        keys = spec;
-        records = {};
-      } else {
-        keys = Object.keys(spec);
-        records = spec;
-      }
-
-      return Promise.all(keys.map(key => {
-        dump('getting key '+key);
-        return coll.get(keyToId(key)).then(function (res) {
-          if (res) {
-            records[res.data.key] = res.data.data;
-            return res.data;
-          } else {
-            return Promise.reject("boom");
-          }
-        }, function () {
-          // XXX we just swallow the error and not set any key
-        });
-      })).then(() => {
-        return records;
-      });
-    });
+    // return getCollection(extensionId).then(coll => {
+    //   let keys, records;
+    //   if (spec === null) {
+    //     records = {};
+    //     return coll.list().then(function(res) {
+    //       res.data.map(record => {
+    //         records[record.key] = record.data;
+    //       });
+    //       return records;
+    //     });
+    //   }
+    //   if (typeof spec === 'string') {
+    //     keys = [spec];
+    //     records = {};
+    //   } else if (Array.isArray(spec)) {
+    //     keys = spec;
+    //     records = {};
+    //   } else {
+    //     keys = Object.keys(spec);
+    //     records = spec;
+    //   }
+    //
+    //   return Promise.all(keys.map(key => {
+    //     dump('getting key '+key);
+    //     return coll.get(keyToId(key)).then(function (res) {
+    //       if (res) {
+    //         records[res.data.key] = res.data.data;
+    //         return res.data;
+    //       } else {
+    //         return Promise.reject("boom");
+    //       }
+    //     }, function () {
+    //       // XXX we just swallow the error and not set any key
+    //     });
+    //   })).then(() => {
+    //     return records;
+    //   });
+    // });
   },
 
   addOnChangedListener(extensionId, listener) {
