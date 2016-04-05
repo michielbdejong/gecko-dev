@@ -13,6 +13,7 @@ const Cr = Components.results;
 
 
 const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
+const MIN_SYNC_INTERVAL = 1000;
 const AREA_NAME = 'sync';
 
 
@@ -25,13 +26,14 @@ Cu.import("resource://gre/modules/Task.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 
 // TODO:
+// * Chrome-level equivalent of setTimeout
 // * mock sync server
 // * encryption function
 // * Kinto server linked to FxA
 
 /* globals ExtensionStorageSync */
 
-var collPromises = {};
+var collPromise = {};
 var lastSync = {};
 var syncTimer = {};
 
@@ -168,11 +170,11 @@ this.ExtensionStorageSync = {
     if (syncTimer[extensionId]) {
       return;
     }
-    syncTimer[extensionId] = setTimeout(function() {
-      lastSync[extensionId] = new Date().getTime();
-      delete syncTimer[extensionId];
-      this.sync(extensionId);
-    }, Math.max(lastSync[extensionId] + MIN_SYNC_INTERVAL - new Date().getTime(), 0));
+    // syncTimer[extensionId] = setTimeout(function() {
+    //   lastSync[extensionId] = new Date().getTime();
+    //   delete syncTimer[extensionId];
+    //   this.sync(extensionId);
+    // }, Math.max(lastSync[extensionId] + MIN_SYNC_INTERVAL - new Date().getTime(), 0));
   },
 
   getCollection(extensionId) {
@@ -185,7 +187,7 @@ this.ExtensionStorageSync = {
     }
     this.maybeSync(extensionId);
     dump('returning coll');
-    return collPromise;
+    return collPromise[extensionId];
   },
 
   set(extensionId, items) {
