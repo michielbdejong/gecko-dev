@@ -22,16 +22,18 @@ Cu.import("resource://gre/modules/Preferences.jsm");
 
 Cu.import("resource://gre/modules/Task.jsm");
 
-Cu.import("resource://gre/modules/FxAccountsStorage.jsm");
-Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
-var fxAccountsCommon = {};
-Cu.import("resource://gre/modules/FxAccountsCommon.js", fxAccountsCommon);
 
+// TODO:
+// * mock sync server
+// * encryption function
+// * Kinto server linked to FxA
 
 /* globals ExtensionStorageSync */
 
-var collPromise;
+var collPromises = {};
+var lastSync = {};
+var syncTimer = {};
 
 function openColl(extensionId) {
   dump('Loading Kinto\n' + extensionId);
@@ -51,27 +53,30 @@ function openColl(extensionId) {
   function encoderFunc(kB) {
     return function(record) {
       dump('fake encoding ' + kB + ' ' + JSON.stringify(record));
-      return record;
+      return Promise.resolve(record);
     };
   }
 
   function decoderFunc(kB) {
     return function(record) {
       dump('fake decoding ' + kB + ' ' + JSON.stringify(record));
-      return record;
+      return Promise.resolve(record);
     };
   }
-  // return fxAccounts.getSignedInUser().then(user => {
-  return Promise.resolve().then(user => {
+  return fxAccounts.getSignedInUser().then(user => {
     return Task.spawn(function* () {
-      let db = new Kinto({
+      const db = new Kinto({
         adapter: Kinto.adapters.FirefoxAdapter,
         remoteTransformers: [
           {
             encode: encoderFunc((user ? user.kB : 'not signed in')),
             decode: decoderFunc((user ? user.kB : 'not signed in'))
           }
-        ]
+        ],
+        remote: 'https://kinto.dev.mozaws.net/v1/',
+        headers: {
+          Authorization: 'Basic ' + btoa('public-demo:s3cr3t')
+        }
       });
       coll = db.collection(extensionId);
       yield coll.db.open('storage-sync.sqlite');
@@ -82,18 +87,6 @@ function openColl(extensionId) {
     dump('error opening SqlLite '+err.message);
     throw err;
   });
-}
-
-function getCollection(extensionId) {
-  if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
-//    return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
-  }
-  if (!collPromise) {
-    dump('opening coll!');
-    collPromise = openColl(extensionId);
-  }
-  dump('returning coll');
-  return collPromise;
 }
 
 var md5 = function(str) {
@@ -136,9 +129,68 @@ function keyToId(key) {
 this.ExtensionStorageSync = {
   listeners: new Map(),
 
+  sync(extensionId) {
+    return this.getCollection(extensionId).then(coll => {
+      return coll.sync();
+    }).then(syncResults => {
+      let changes = {};
+      syncResults.created.map(record => {
+        changes[record.key] = {
+          oldValue: undefined,
+          newValue: record.data
+        };
+      });
+      syncResults.updated.map(record => {
+        // TODO: work out what the previous version was when a record was updated
+        changes[record.key] = {
+          oldValue: "unknown",
+          newValue: record.data
+        };
+      });
+      syncResults.deleted.map(record => {
+        changes[record.key] = {
+          oldValue: record.data,
+          newValue: undefined
+        };
+      });
+      syncResults.conflicts.map(conflict => {
+        changes[conflict.remote.key] = {
+          oldValue: conflict.local.data,
+          newValue: conflict.remote.data
+        };
+        this.items.resolve(conflict, conflict.remote);
+      });
+      this.notifyListeners(extensionId, changes);
+    });
+  },
+
+  maybeSync(extensionId) {
+    if (syncTimer[extensionId]) {
+      return;
+    }
+    syncTimer[extensionId] = setTimeout(function() {
+      lastSync[extensionId] = new Date().getTime();
+      delete syncTimer[extensionId];
+      this.sync(extensionId);
+    }, Math.max(lastSync[extensionId] + MIN_SYNC_INTERVAL - new Date().getTime(), 0));
+  },
+
+  getCollection(extensionId) {
+    if (Preferences.get(STORAGE_SYNC_ENABLED, false) !== true) {
+      return Promise.reject(`Please set ${STORAGE_SYNC_ENABLED} to true in about:config`);
+    }
+    if (!collPromise[extensionId]) {
+      dump('opening coll!');
+      collPromise[extensionId] = openColl(extensionId);
+    }
+    this.maybeSync(extensionId);
+    dump('returning coll');
+    return collPromise;
+  },
+
   set(extensionId, items) {
     dump('setting' + JSON.stringify(items));
-    return getCollection(extensionId).then(coll => {
+    return this.getCollection(extensionId).then(coll => {
       dump('enabled!');
       let changes = {};
 
@@ -205,7 +257,7 @@ this.ExtensionStorageSync = {
   },
 
   remove(extensionId, keys) {
-    return getCollection(extensionId).then(coll => {
+    return this.getCollection(extensionId).then(coll => {
       keys = [].concat(keys);
       let changes = {};
 
@@ -238,7 +290,7 @@ this.ExtensionStorageSync = {
   },
 
   clear(extensionId) {
-    return getCollection(extensionId).then(coll => {
+    return this.getCollection(extensionId).then(coll => {
       let changes = [];
       return coll.list().then(records => {
         dump('\n\n\n\nclear removes records '+JSON.stringify(records) + '\n\n\n\n');
@@ -260,7 +312,7 @@ this.ExtensionStorageSync = {
   },
 
   get(extensionId, spec) {
-    return getCollection(extensionId).then(coll => {
+    return this.getCollection(extensionId).then(coll => {
       let keys, records;
       if (spec === null) {
         records = {};
