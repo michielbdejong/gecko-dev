@@ -26,7 +26,6 @@ Cu.import("resource://gre/modules/Task.jsm");
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 
 // TODO:
-// * Chrome-level equivalent of setTimeout
 // * mock sync server
 // * encryption function
 // * Kinto server linked to FxA
@@ -170,11 +169,22 @@ this.ExtensionStorageSync = {
     if (syncTimer[extensionId]) {
       return;
     }
-    // syncTimer[extensionId] = setTimeout(function() {
-    //   lastSync[extensionId] = new Date().getTime();
-    //   delete syncTimer[extensionId];
-    //   this.sync(extensionId);
-    // }, Math.max(lastSync[extensionId] + MIN_SYNC_INTERVAL - new Date().getTime(), 0));
+    let delay = 0;
+    if (lastSync[extensionId]) {
+      delay = lastSync[extensionId] + MIN_SYNC_INTERVAL - new Date().getTime();
+    }
+    if (delay < 0) {
+      delay = 0;
+    }
+    syncTimer[extensionId] = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    syncTimer[extensionId].initWithCallback({
+      notify: function() {
+        dump("\n\nSYNCING!!!\n\n");
+        lastSync[extensionId] = new Date().getTime();
+        delete syncTimer[extensionId];
+        this.sync(extensionId);
+      }.bind(this)
+    }, delay, Ci.nsITimer.TYPE_ONE_SHOT);
   },
 
   getCollection(extensionId) {
