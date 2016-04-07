@@ -51,7 +51,7 @@ this.FxAccountsProfileClient = function(options) {
     throw new Error("Invalid 'serverURL'");
   }
   this.oauthOptions = {
-    scope: "profile",
+    scope: "kinto",
   };
   log.debug("FxAccountsProfileClient: Initialized");
 };

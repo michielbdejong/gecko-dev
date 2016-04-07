@@ -38,14 +38,6 @@ var syncTimer = {};
 
 function openColl(extensionId) {
   dump('Loading Kinto\n' + extensionId);
-  // From FxA:
-  // Kinto creds
-  // encryption key
-  // idea: check how FxOS does it, use SyncTo to a 'content' collection.
-
-  // step 1: when logged in, expose FxA account data, to check
-  // step 2: access the existing FxSync data here
-  // step 3: add a 'content' collection, Kinto.js-Api object.
   const Kinto = loadKinto();
   var coll;
   if (!Kinto) {
@@ -64,24 +56,18 @@ function openColl(extensionId) {
       return Promise.resolve(record);
     };
   }
-  return fxAccounts.getSignedInUser().then(user => {
-    return Task.spawn(function* () {
-      const db = new Kinto({
-        adapter: Kinto.adapters.FirefoxAdapter,
-        remoteTransformers: [
-          {
-            encode: encoderFunc((user ? user.kB : 'not signed in')),
-            decode: decoderFunc((user ? user.kB : 'not signed in'))
-          }
-        ],
-        remote: 'https://kinto.dev.mozaws.net/v1/',
-        headers: {
-          Authorization: 'Basic ' + btoa('public-demo:s3cr3t')
+  return Task.spawn(function* () {
+    const db = new Kinto({
+      adapter: Kinto.adapters.FirefoxAdapter,
+      remoteTransformers: [
+        {
+          encode: encoderFunc(('not signed in')),
+          decode: decoderFunc(('not signed in'))
         }
-      });
-      coll = db.collection(extensionId);
-      yield coll.db.open('storage-sync.sqlite');
+      ]
     });
+    coll = db.collection(extensionId);
+    yield coll.db.open('storage-sync.sqlite');
   }).then(() => {
     return coll;
   }).catch(err => {
@@ -131,8 +117,25 @@ this.ExtensionStorageSync = {
   listeners: new Map(),
 
   sync(extensionId) {
-    return this.getCollection(extensionId).then(coll => {
-      return coll.sync();
+    return fxAccounts.getSignedInUser().then(user => {
+      dump("LOGGED IN TO FXA "+ JSON.stringify(user));
+      if (!user) {
+        return Promise.reject('Not signed in to FxA');
+      }
+      if (!user.oauthTokens) {
+        return Promise.reject('FxA user has no OAuth tokens');
+      }
+      if (!user.oauthTokens.kinto) {
+        return Promise.reject('FxA user does not have OAuth token for Kinto');
+      }
+      return this.getCollection(extensionId).then(coll => {
+        return coll.sync({
+          remote: 'https://kinto.dev.mozaws.net/v1/',
+          headers: {
+            Authorization: 'Bearer ' + user.oauthTokens.kinto.token
+          }
+        });
+      });
     }).then(syncResults => {
       let changes = {};
       syncResults.created.map(record => {
@@ -162,6 +165,10 @@ this.ExtensionStorageSync = {
         this.items.resolve(conflict, conflict.remote);
       });
       this.notifyListeners(extensionId, changes);
+      dump("syncResults: " + JSON.stringify(syncResults));
+    }).catch(err => {
+      dump("sync error: " + err.message);
+      throw err;
     });
   },
 
