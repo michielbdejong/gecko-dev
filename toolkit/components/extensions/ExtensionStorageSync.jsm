@@ -13,7 +13,7 @@ const Cr = Components.results;
 
 
 const STORAGE_SYNC_ENABLED = 'extension.storage.sync.enabled';
-const MIN_SYNC_INTERVAL = 1000;
+const MIN_SYNC_INTERVAL = 10000;
 const AREA_NAME = 'sync';
 
 
