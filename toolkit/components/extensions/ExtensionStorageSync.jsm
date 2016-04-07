@@ -60,7 +60,6 @@ function openColl(extensionId) {
   return Task.spawn(function* () {
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
-      bucket: 'storage',
       remoteTransformers: [
         {
           encode: encoderFunc(('not signed in')),
