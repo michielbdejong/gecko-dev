@@ -37,7 +37,8 @@ var lastSync = {};
 var syncTimer = {};
 
 function openColl(extensionId) {
-  dump('Loading Kinto\n' + extensionId);
+  var collectionId = md5(extensionId);
+  dump('Loading Kinto\n' + collectionId + ' <- ' + extensionId + '\n');
   const Kinto = loadKinto();
   var coll;
   if (!Kinto) {
@@ -59,6 +60,7 @@ function openColl(extensionId) {
   return Task.spawn(function* () {
     const db = new Kinto({
       adapter: Kinto.adapters.FirefoxAdapter,
+      bucket: 'storage',
       remoteTransformers: [
         {
           encode: encoderFunc(('not signed in')),
@@ -66,7 +68,7 @@ function openColl(extensionId) {
         }
       ]
     });
-    coll = db.collection(extensionId);
+    coll = db.collection(collectionId);
     yield coll.db.open('storage-sync.sqlite');
   }).then(() => {
     return coll;
@@ -128,6 +130,13 @@ this.ExtensionStorageSync = {
       if (!user.oauthTokens.kinto) {
         return Promise.reject('FxA user does not have OAuth token for Kinto');
       }
+      var collectionId = md5(extensionId);
+      dump("\nPlease run: ./prepare.sh " + user.oauthTokens.kinto.token + " " + collectionId + "\n");
+      dump("\nPlease run: ./prepare.sh " + user.oauthTokens.kinto.token + " " + collectionId + "\n");
+      dump("\nPlease run: ./prepare.sh " + user.oauthTokens.kinto.token + " " + collectionId + "\n");
+      dump("\nPlease run: ./prepare.sh " + user.oauthTokens.kinto.token + " " + collectionId + "\n");
+      dump("\nPlease run: ./prepare.sh " + user.oauthTokens.kinto.token + " " + collectionId + "\n");
+      dump("\nPlease run: ./prepare.sh " + user.oauthTokens.kinto.token + " " + collectionId + "\n");
       return this.getCollection(extensionId).then(coll => {
         return coll.sync({
           remote: 'https://kinto.dev.mozaws.net/v1',
