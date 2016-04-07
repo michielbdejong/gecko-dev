@@ -130,7 +130,7 @@ this.ExtensionStorageSync = {
       }
       return this.getCollection(extensionId).then(coll => {
         return coll.sync({
-          remote: 'https://kinto.dev.mozaws.net/v1/',
+          remote: 'https://kinto.dev.mozaws.net/v1',
           headers: {
             Authorization: 'Bearer ' + user.oauthTokens.kinto.token
           }

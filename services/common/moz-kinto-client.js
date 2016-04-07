@@ -3383,6 +3383,7 @@ class HTTP {
    * @return {Promise}
    */
   request(url, options = { headers: {} }) {
+    dump('\nKINTO REQUEST! ' + url + ' ' + JSON.stringify(options) + '\n\n');
     let response, status, statusText, headers, _timeoutId, hasTimedout;
     // Ensure default request headers are always set
     options.headers = Object.assign({}, HTTP.DEFAULT_REQUEST_HEADERS, options.headers);
