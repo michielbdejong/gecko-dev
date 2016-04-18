@@ -77,7 +77,7 @@ function getKeyBundle(extensionId) {
                            `storage.sync-for-WebExtension:${md5(extensionId)}`, 2*32);
     let bundle = new BulkKeyBundle();
     // [encryptionKey, hmacKey]
-    bundle.keyPair = [out.slice(0, 32), out.slice(32, 64)];
+    bundle.keyPair = [keyMaterial.slice(0, 32), keyMaterial.slice(32, 64)];
     return bundle;
   });
 }
@@ -237,6 +237,12 @@ this.ExtensionStorageSync = {
           headers: {
             Authorization: 'Bearer ' + user.oauthTokens.kinto.token
           }
+        }).catch(err => {
+          if (err.message.contains("flushed")) {
+            return coll.resetSyncStatus()
+              .then(_ => coll.sync());
+          }
+          throw err;
         });
       });
     }).then(syncResults => {
