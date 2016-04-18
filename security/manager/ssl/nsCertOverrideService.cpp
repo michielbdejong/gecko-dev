@@ -435,7 +435,7 @@ nsCertOverrideService::HasMatchingOverride(const nsACString & aHostName, int32_t
   NS_ENSURE_ARG_POINTER(aOverrideBits);
   NS_ENSURE_ARG_POINTER(aIsTemporary);
   NS_ENSURE_ARG_POINTER(_retval);
-  *_retval = true;
+  *_retval = false;
   *aOverrideBits = nsCertOverride::ob_None;
 
   nsAutoCString hostPort;
