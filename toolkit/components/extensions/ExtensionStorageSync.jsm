@@ -25,10 +25,30 @@ Cu.import("resource://gre/modules/Task.jsm");
 
 Cu.import("resource://gre/modules/FxAccounts.jsm");
 
+Cu.import("resource://gre/modules/Log.jsm");
+Cu.import("resource://services-common/async.js");
 Cu.import("resource://services-common/utils.js");
+Cu.import("resource://services-common/tokenserverclient.js");
 Cu.import("resource://services-crypto/utils.js");
+Cu.import("resource://services-sync/identity.js");
+Cu.import("resource://services-sync/util.js");
+Cu.import("resource://services-common/tokenserverclient.js");
+Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://services-sync/constants.js");
+Cu.import("resource://gre/modules/Promise.jsm");
+Cu.import("resource://services-sync/stages/cluster.js");
+Cu.import("resource://gre/modules/FxAccounts.jsm");
+
+// Lazy imports to prevent unnecessary load on startup.
+XPCOMUtils.defineLazyModuleGetter(this, "Weave",
+                                  "resource://services-sync/main.js");
+
 XPCOMUtils.defineLazyModuleGetter(this, "BulkKeyBundle",
                                   "resource://services-sync/keys.js");
+
+XPCOMUtils.defineLazyModuleGetter(this, "fxAccounts",
+                                  "resource://gre/modules/FxAccounts.jsm");
+
 
 
 /* globals ExtensionStorageSync */
