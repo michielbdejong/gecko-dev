@@ -1874,7 +1874,7 @@ class KintoBase {
     if (!collName) {
       throw new Error("missing collection name");
     }
-
+    dump('number of remoteTransformers ' + options.remoteTransformers.length);
     const bucket = this._options.bucket;
     return new _collection2.default(bucket, collName, this._api, {
       events: this._options.events,
@@ -2663,7 +2663,9 @@ class Collection {
    * @return {Promise}
    */
   _encodeRecord(type, record) {
+    dump('_encodeRecord ' + type + JSON.stringify(record));
     if (!this[`${ type }Transformers`].length) {
+      dump('no transformers found!' + type);
       return Promise.resolve(record);
     }
     return (0, _utils.waterfall)(this[`${ type }Transformers`].map(transformer => {
@@ -2679,6 +2681,7 @@ class Collection {
    * @return {Promise}
    */
   _decodeRecord(type, record) {
+    dump('_decodeRecord', type, record);
     if (!this[`${ type }Transformers`].length) {
       return Promise.resolve(record);
     }
@@ -2980,6 +2983,7 @@ class Collection {
       }, { toDelete: [], toSync: [] });
     }).then(({ toDelete, toSync }) => {
       _toDelete = toDelete;
+dump('applying remote transformers!');
       return Promise.all(toSync.map(this._encodeRecord.bind(this, "remote")));
     }).then(toSync => ({ toDelete: _toDelete, toSync }));
   }

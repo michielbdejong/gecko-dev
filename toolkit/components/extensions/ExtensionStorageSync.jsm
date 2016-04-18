@@ -83,6 +83,7 @@ function getKeyBundle(extensionId) {
 }
 
 function createEncryptionTransformer(keyBundle) {
+  dump('creating encryptionTransformer', keyBundle);
   function ciphertextHMAC(ciphertext) {
     let hasher = keyBundle.sha256HMACHasher;
     if (!hasher) {
@@ -156,12 +157,14 @@ function openColl(extensionId) {
   return getKeyBundle().then(keyBundle => {
     return createEncryptionTransformer(keyBundle);
   }).then(encryptionTransformer => {
+    dump('Adding encrpytionTransformer');
     return Task.spawn(function* () {
       const db = new Kinto({
-        adapter: Kinto.adapters.FirefoxAdapter,
+        adapter: Kinto.adapters.FirefoxAdapter
+      });
+      coll = db.collection(collectionId, {
         remoteTransformers: [ encryptionTransformer ]
       });
-      coll = db.collection(collectionId);
       yield coll.db.open('storage-sync.sqlite');
     });
   }).then(() => {
@@ -243,38 +246,38 @@ this.ExtensionStorageSync = {
               .then(_ => coll.sync());
           }
           throw err;
+        }).then(syncResults => {
+          let changes = {};
+          syncResults.created.map(record => {
+            changes[record.key] = {
+              oldValue: undefined,
+              newValue: record.data
+            };
+          });
+          syncResults.updated.map(record => {
+            // TODO: work out what the previous version was when a record was updated
+            changes[record.key] = {
+              oldValue: "unknown",
+              newValue: record.data
+            };
+          });
+          syncResults.deleted.map(record => {
+            changes[record.key] = {
+              oldValue: record.data,
+              newValue: undefined
+            };
+          });
+          syncResults.conflicts.map(conflict => {
+            changes[conflict.remote.key] = {
+              oldValue: conflict.local.data,
+              newValue: conflict.remote.data
+            };
+            coll.resolve(conflict, conflict.remote);
+          });
+          this.notifyListeners(extensionId, changes);
+          dump("syncResults: " + JSON.stringify(syncResults));
         });
       });
-    }).then(syncResults => {
-      let changes = {};
-      syncResults.created.map(record => {
-        changes[record.key] = {
-          oldValue: undefined,
-          newValue: record.data
-        };
-      });
-      syncResults.updated.map(record => {
-        // TODO: work out what the previous version was when a record was updated
-        changes[record.key] = {
-          oldValue: "unknown",
-          newValue: record.data
-        };
-      });
-      syncResults.deleted.map(record => {
-        changes[record.key] = {
-          oldValue: record.data,
-          newValue: undefined
-        };
-      });
-      syncResults.conflicts.map(conflict => {
-        changes[conflict.remote.key] = {
-          oldValue: conflict.local.data,
-          newValue: conflict.remote.data
-        };
-        this.items.resolve(conflict, conflict.remote);
-      });
-      this.notifyListeners(extensionId, changes);
-      dump("syncResults: " + JSON.stringify(syncResults));
     }).catch(err => {
       dump("sync error: " + err.message);
       throw err;
