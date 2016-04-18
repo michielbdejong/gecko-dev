@@ -16,8 +16,7 @@ function wrapRejection(err) {
   if (typeof err === 'string') {
     return Promise.reject({ message: err });
   }
-  dump("error!\n" + err.message);
-  return Promise.reject({ message: 'masked!' });
+  return Promise.reject({ message: err.message });
 }
 
 extensions.registerSchemaAPI("storage", "storage", (extension, context) => {

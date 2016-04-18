@@ -27,9 +27,9 @@ Cu.import("resource://gre/modules/FxAccounts.jsm");
 
 Cu.import("resource://services-common/utils.js");
 Cu.import("resource://services-crypto/utils.js");
-Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 XPCOMUtils.defineLazyModuleGetter(this, "BulkKeyBundle",
-  "resource://services-sync/keys.js");
+                                  "resource://services-sync/keys.js");
+
 
 /* globals ExtensionStorageSync */
 
@@ -37,30 +37,29 @@ var collPromise = {};
 var lastSync = {};
 var syncTimer = {};
 
-
 function getKeyBundle(extensionId) {
-  // return Promise.resolve();
-  return fxAccounts.getSignedInUser().then(user => {
-    if (!user || !user.kB) {
-      return Promise.reject(new Error('Sorry, encryption requires kB from FxA!'));
-    }
-    return Utils.hexToBytes(user.kB);
-  }).then(kB => {
-    // FIXME: does it make sense to make this depend on the extensionId in this
-    // way? In FxSync, there is another level of keys (each colletion has a key,
-    // which is uploaded in encrypted form to crypto/keys, see
-    // https://github.com/michielbdejong/gecko-dev/blob/4ca96f2eee849a7c3a7f9a \
-    // d1838c95fe9b5cba2b/services/sync/modules/record.js#L129). Do we need that
-    // here as well? Is there a risk of somehow leaking information about kB
-    // here? Is there a risk from one WebExtension obtaining access to (the
-    // encryption keys of) data of other WebExtensions the user has installed?
-    let keyMaterial = CryptoUtils.hkdf(kB, undefined,
-                    `storage.sync-for-WebExtension:${md5(extensionId)}`, 2*32);
-    let bundle = new BulkKeyBundle();
-    // [encryptionKey, hmacKey]
-    bundle.keyPair = [out.slice(0, 32), out.slice(32, 64)];
-    return bundle;
-  });
+  return Promise.resolve(`fake key bundle for ${extensionId}`);
+  // return fxAccounts.getSignedInUser().then(user => {
+  //   if (!user || !user.kB) {
+  //     return Promise.reject(new Error('Sorry, encryption requires kB from FxA!'));
+  //   }
+  //   return Utils.hexToBytes(user.kB);
+  // }).then(kB => {
+  //   // FIXME: does it make sense to make this depend on the extensionId in this
+  //   // way? In FxSync, there is another level of keys (each colletion has a key,
+  //   // which is uploaded in encrypted form to crypto/keys, see
+  //   // https://github.com/michielbdejong/gecko-dev/blob/4ca96f2eee849a7c3a7f9a \
+  //   // d1838c95fe9b5cba2b/services/sync/modules/record.js#L129). Do we need that
+  //   // here as well? Is there a risk of somehow leaking information about kB
+  //   // here? Is there a risk from one WebExtension obtaining access to (the
+  //   // encryption keys of) data of other WebExtensions the user has installed?
+  //   let keyMaterial = CryptoUtils.hkdf(kB, undefined,
+  //                          `storage.sync-for-WebExtension:${md5(extensionId)}`, 2*32);
+  //   let bundle = new BulkKeyBundle();
+  //   // [encryptionKey, hmacKey]
+  //   bundle.keyPair = [out.slice(0, 32), out.slice(32, 64)];
+  //   return bundle;
+  // });
 }
 
 function createEncryptionTransformer(keyBundle) {
@@ -72,56 +71,58 @@ function createEncryptionTransformer(keyBundle) {
     return Utils.bytesAsHex(Utils.digestUTF8(ciphertext, hasher));
   }
 
-  return Promise.resolve({
+  return {
     encode(record) {
-      // return Promise.resolve(record);
-      if (!keyBundle) {
-        throw new Error("A key bundle must be supplied to encrypt.");
-      }
-
-      let IV = Svc.Crypto.generateRandomIV();
-      let ciphertext = Svc.Crypto.encrypt(JSON.stringify(record),
-                                           keyBundle.encryptionKeyB64, IV);
-      let hasher = keyBundle.sha256HMACHasher;
-      if (!hasher) {
-        throw "Cannot compute HMAC without an HMAC key.";
-      }
-      let hmac = ciphertextHMAC(ciphertext);
-      return Promise.resolve({ ciphertext, IV, hmac, id: record.id });
+      dump("Encoding!\n" + JSON.stringify(record) + "\n\n");
+      return Promise.resolve(record);
+      // if (!keyBundle) {
+      //   throw new Error("A key bundle must be supplied to encrypt.");
+      // }
+      //
+      // let IV = Svc.Crypto.generateRandomIV();
+      // let ciphertext = Svc.Crypto.encrypt(JSON.stringify(record),
+      //                                      keyBundle.encryptionKeyB64, IV);
+      // let hasher = keyBundle.sha256HMACHasher;
+      // if (!hasher) {
+      //   throw "Cannot compute HMAC without an HMAC key.";
+      // }
+      // let hmac = ciphertextHMAC(ciphertext);
+      // return Promise.resolve({ ciphertext, IV, hmac, id: record.id });
     },
     decode(record) {
-      // return Promise.resolve(record);
-      if (!record.ciphertext) {
-        throw "No ciphertext: nothing to decrypt?";
-      }
-      if (!keyBundle) {
-        throw new Error("A key bundle must be supplied to decrypt.");
-      }
-      // Authenticate the encrypted blob with the expected HMAC
-      let computedHMAC = ciphertextHMAC(record.ciphertext);
-
-      if (computedHMAC != record.hmac) {
-        Utils.throwHMACMismatch(record.hmac, computedHMAC);
-      }
-
-      // Handle invalid data here. Elsewhere we assume that cleartext is an object.
-      let cleartext = Svc.Crypto.decrypt(record.ciphertext,
-                                         keyBundle.encryptionKeyB64, record.IV);
-      let json_result = JSON.parse(cleartext);
-
-      if (json_result && (json_result instanceof Object)) {
-        clearObj = json_result;
-      } else {
-        throw "Decryption failed: result is <" + json_result + ">, not an object.";
-      }
-
-      // Verify that the encrypted id matches the requested record's id.
-      if (clearObj.id != record.id)
-        throw "Record id mismatch: " + clearObj.id + " != " + record.id;
-
-      return Promise.resolve(clearObj);
+      dump("Decoding!\n" + JSON.stringify(record) + "\n\n");
+      return Promise.resolve(record);
+      // if (!record.ciphertext) {
+      //   throw "No ciphertext: nothing to decrypt?";
+      // }
+      // if (!keyBundle) {
+      //   throw new Error("A key bundle must be supplied to decrypt.");
+      // }
+      // // Authenticate the encrypted blob with the expected HMAC
+      // let computedHMAC = ciphertextHMAC(record.ciphertext);
+      //
+      // if (computedHMAC != record.hmac) {
+      //   Utils.throwHMACMismatch(record.hmac, computedHMAC);
+      // }
+      //
+      // // Handle invalid data here. Elsewhere we assume that cleartext is an object.
+      // let cleartext = Svc.Crypto.decrypt(record.ciphertext,
+      //                                    keyBundle.encryptionKeyB64, record.IV);
+      // let json_result = JSON.parse(cleartext);
+      //
+      // if (json_result && (json_result instanceof Object)) {
+      //   clearObj = json_result;
+      // } else {
+      //   throw "Decryption failed: result is <" + json_result + ">, not an object.";
+      // }
+      //
+      // // Verify that the encrypted id matches the requested record's id.
+      // if (clearObj.id != record.id)
+      //   throw "Record id mismatch: " + clearObj.id + " != " + record.id;
+      //
+      // return Promise.resolve(clearObj);
     }
-  });
+  };
 }
 
 function openColl(extensionId) {
@@ -132,9 +133,6 @@ function openColl(extensionId) {
   if (!Kinto) {
     return Promise.reject(new Error('Not supported'));
   }
-  // return Promise.resolve({
-  //   encode(record) { return record; },
-  //   decode(record) { return record; }
   return getKeyBundle().then(keyBundle => {
     return createEncryptionTransformer(keyBundle);
   }).then(encryptionTransformer => {
