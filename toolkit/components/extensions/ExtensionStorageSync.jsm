@@ -95,6 +95,10 @@ function createEncryptionTransformer(keyBundle) {
   return {
     encode(record) {
       dump("Encoding!\n" + JSON.stringify(record) + "\n\n");
+      if (record.ciphertext) {
+        dump("WARNING! ATtempt to reencrypt\n\n\n\n");
+        return Promise.resolve(record);
+      }
       // return Promise.resolve(record);
       if (!keyBundle) {
         throw new Error("A key bundle must be supplied to encrypt.");
@@ -130,7 +134,7 @@ function createEncryptionTransformer(keyBundle) {
       let cleartext = Svc.Crypto.decrypt(record.ciphertext,
                                          keyBundle.encryptionKeyB64, record.IV);
       let json_result = JSON.parse(cleartext);
-
+      let clearObj;
       if (json_result && (json_result instanceof Object)) {
         clearObj = json_result;
       } else {
@@ -239,7 +243,8 @@ this.ExtensionStorageSync = {
           remote: 'https://kinto.dev.mozaws.net/v1',
           headers: {
             Authorization: 'Bearer ' + user.oauthTokens.kinto.token
-          }
+          },
+          strategy: 'client_wins'
         }).catch(err => {
           if (err.message.contains("flushed")) {
             return coll.resetSyncStatus()
@@ -272,7 +277,7 @@ this.ExtensionStorageSync = {
               oldValue: conflict.local.data,
               newValue: conflict.remote.data
             };
-            coll.resolve(conflict, conflict.remote);
+            coll.resolve(conflict, conflict.local);
           });
           this.notifyListeners(extensionId, changes);
           dump("syncResults: " + JSON.stringify(syncResults));
