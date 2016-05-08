@@ -119,23 +119,23 @@ add_test(function test_invalidEmailCase_signIn() {
     switch (message.id) {
       // When we signed in as "Greta.Garbo", the server should have told us
       // that the proper capitalization is really "greta.garbo".  Call
-      // getAccounts to get the signed-in user and ensure that the
+      // getAccount to get the signed-in user and ensure that the
       // capitalization is correct.
       case "signIn":
         FxAccountsMgmtService.handleEvent({
           detail: {
-            id: "getAccounts",
+            id: "getAccount",
             data: {
-              method: "getAccounts",
+              method: "getAccount",
             }
           }
         });
         break;
 
-      // Having initially signed in as "Greta.Garbo", getAccounts should show
+      // Having initially signed in as "Greta.Garbo", getAccount should show
       // us that the signed-in user has the properly-capitalized email,
       // "greta.garbo".
-      case "getAccounts":
+      case "getAccount":
         Services.obs.removeObserver(onMessage, "mozFxAccountsChromeEvent");
 
         do_check_eq(message.data.email, canonicalEmail);
