@@ -23,7 +23,7 @@
     "test": "~0.x.0",
     "phantomify": "~0.x.0",
     "retape": "~0.x.0",
-    "tape": "~0.1.5"
+    "tape": "~4.10.1"
   },
   "main": "./index.js",
   "scripts": {
