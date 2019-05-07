@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "gift": "~0.0.6",
+    "gift": "~0.10.2",
     "optimist": "~0.6.0"
   }
 }
