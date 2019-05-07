@@ -14,8 +14,8 @@
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
-    "mocha": "^1.21.4",
-    "chai": "^1.9.1",
+    "mocha": "6.1.4",
+    "chai": "4.2.0",
     "mozilla-version-comparator": "^1.0.2"
   }
 }
