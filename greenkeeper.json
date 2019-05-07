@@ -1,0 +1,21 @@
+{
+  "groups": {
+    "default": {
+      "packages": [
+        "addon-sdk/source/examples/actor-repl/package.json",
+        "addon-sdk/source/examples/debug-client/package.json",
+        "addon-sdk/source/examples/reading-data/package.json",
+        "addon-sdk/source/examples/theme/package.json",
+        "addon-sdk/source/examples/toolbar-api/package.json",
+        "addon-sdk/source/examples/ui-button-apis/package.json",
+        "addon-sdk/source/lib/diffpatcher/package.json",
+        "addon-sdk/source/lib/jetpack-id/package.json",
+        "addon-sdk/source/lib/method/package.json",
+        "addon-sdk/source/lib/mozilla-toolkit-versioning/package.json",
+        "addon-sdk/source/package.json",
+        "browser/components/loop/standalone/package.json",
+        "dom/media/webvtt/package.json"
+      ]
+    }
+  }
+}
