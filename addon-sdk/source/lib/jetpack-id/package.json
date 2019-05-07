@@ -22,7 +22,7 @@
     "firefox"
   ],
   "devDependencies": {
-    "mocha": "*",
-    "chai": "*"
+    "mocha": "6.1.4",
+    "chai": "4.2.0"
   }
 }
